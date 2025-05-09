@@ -1,0 +1,136 @@
+{% extends "base.html" %}
+
+{% block title %}메뉴 관리{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>메뉴 관리</h2>
+            <div class="d-flex align-items-center">
+                <span class="me-3">관리자: {{ username }}</span>
+                <a href="/admin/logout" class="btn btn-outline-secondary btn-sm">로그아웃</a>
+            </div>
+        </div>
+
+        <!-- 새 메뉴 추가 폼 -->
+        <div class="card mb-4">
+            <div class="card-header">
+                <h4 class="mb-0">새 메뉴 추가</h4>
+            </div>
+            <div class="card-body">
+                <form method="POST" action="/admin/menu/add">
+                    <div class="row">
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="name_kr" class="form-label">한글 이름</label>
+                                <input type="text" class="form-control" id="name_kr" name="name_kr" required>
+                            </div>
+                        </div>
+                        <div class="col-md-3">
+                            <div class="mb-3">
+                                <label for="name_en" class="form-label">영문 이름 (코드)</label>
+                                <input type="text" class="form-control" id="name_en" name="name_en" required>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label for="price" class="form-label">가격</label>
+                                <input type="number" class="form-control" id="price" name="price" required>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label for="category" class="form-label">카테고리</label>
+                                <select class="form-select" id="category" name="category" required>
+                                    <option value="drinks">음료</option>
+                                    <option value="main_dishes">메인 요리</option>
+                                    <option value="side_dishes">사이드 메뉴</option>
+                                </select>
+                            </div>
+                        </div>
+                        <div class="col-md-2">
+                            <div class="mb-3">
+                                <label class="form-label">&nbsp;</label>
+                                <button type="submit" class="btn btn-primary w-100">추가</button>
+                            </div>
+                        </div>
+                    </div>
+                </form>
+            </div>
+        </div>
+
+        <!-- 메뉴 목록 -->
+        <div class="card">
+            <div class="card-header">
+                <h4 class="mb-0">메뉴 목록</h4>
+            </div>
+            <div class="card-body">
+                {% if menu_items %}
+                    <div class="table-responsive">
+                        <table class="table">
+                            <thead>
+                                <tr>
+                                    <th>한글 이름</th>
+                                    <th>영문 이름</th>
+                                    <th>가격</th>
+                                    <th>카테고리</th>
+                                    <th>상태</th>
+                                    <th>작업</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {% for item in menu_items %}
+                                <tr>
+                                    <td>
+                                        <form method="POST" action="/admin/menu/update/{{ item.id }}" class="d-inline">
+                                            <input type="text" class="form-control" name="name_kr" value="{{ item.name_kr }}" required>
+                                    </td>
+                                    <td>
+                                            <input type="text" class="form-control" name="name_en" value="{{ item.name_en }}" required>
+                                    </td>
+                                    <td>
+                                            <input type="number" class="form-control" name="price" value="{{ item.price }}" required>
+                                    </td>
+                                    <td>
+                                            <select class="form-select" name="category" required>
+                                                <option value="drinks" {% if item.category == "drinks" %}selected{% endif %}>음료</option>
+                                                <option value="main_dishes" {% if item.category == "main_dishes" %}selected{% endif %}>메인 요리</option>
+                                                <option value="side_dishes" {% if item.category == "side_dishes" %}selected{% endif %}>사이드 메뉴</option>
+                                            </select>
+                                    </td>
+                                    <td>
+                                            <div class="form-check">
+                                                <input class="form-check-input" type="checkbox" name="is_active" {% if item.is_active %}checked{% endif %}>
+                                                <label class="form-check-label">
+                                                    활성화
+                                                </label>
+                                            </div>
+                                    </td>
+                                    <td>
+                                            <button type="submit" class="btn btn-primary btn-sm">저장</button>
+                                        </form>
+                                        <form method="POST" action="/admin/menu/delete/{{ item.id }}" class="d-inline">
+                                            <button type="submit" class="btn btn-danger btn-sm" onclick="return confirm('정말 삭제하시겠습니까?')">삭제</button>
+                                        </form>
+                                    </td>
+                                </tr>
+                                {% endfor %}
+                            </tbody>
+                        </table>
+                    </div>
+                {% else %}
+                    <div class="alert alert-info">
+                        등록된 메뉴가 없습니다.
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <a href="/admin/orders" class="btn btn-primary">결제 대기 주문 보기</a>
+            <a href="/kitchen" class="btn btn-primary ms-2">주방 화면 보기</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 
