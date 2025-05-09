@@ -141,7 +141,7 @@ def get_menu_data(db: SessionLocal):
         }
     }
     
-    return menu_prices, menu_names, menu_categories
+    return menu_prices, menu_names, menu_categories, {item.name_en: item for item in menu_items}
 
 def generate_qr_code(url: str, table_id: int) -> str:
     """QR 코드를 생성하고 저장된 경로를 반환합니다."""
@@ -204,7 +204,7 @@ async def generate_all_qr(request: Request):
 
 @app.get("/order", response_class=HTMLResponse)
 async def order_page(request: Request, table: int, db: SessionLocal = Depends(get_db)):
-    menu_prices, menu_names, menu_categories = get_menu_data(db)
+    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
     return templates.TemplateResponse(
         "order.html",
         {
@@ -212,7 +212,8 @@ async def order_page(request: Request, table: int, db: SessionLocal = Depends(ge
             "table_id": table,
             "menu_prices": menu_prices,
             "menu_categories": menu_categories,
-            "menu_names": menu_names
+            "menu_names": menu_names,
+            "menu_items": menu_items
         }
     )
 

@@ -1,5 +1,5 @@
 app = "dongsuldongsul"
-primary_region = "icn"  # Seoul region
+primary_region = "hkg"  # Hong Kong region
 
 [build]
   dockerfile = "Dockerfile"
