@@ -202,7 +202,7 @@ const menuItems = {
                 name_kr: '{{ item.name_kr }}',
                 name_en: '{{ item.name_en }}',
                 price: {{ item.price }}
-            },
+            }{% if not loop.last %},{% endif %}
         {% endfor %}
     {% endfor %}
 };

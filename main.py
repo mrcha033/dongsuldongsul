@@ -204,16 +204,25 @@ async def generate_all_qr(request: Request):
 
 @app.get("/order", response_class=HTMLResponse)
 async def order_page(request: Request, table: int, db: SessionLocal = Depends(get_db)):
-    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+    menu_items = db.query(MenuItem).filter(MenuItem.is_active == True).all()
+    
+    # 카테고리별 메뉴 그룹화
+    menu_by_category = {
+        "drinks": [],
+        "main_dishes": [],
+        "side_dishes": []
+    }
+    
+    for item in menu_items:
+        if item.category in menu_by_category:
+            menu_by_category[item.category].append(item)
+    
     return templates.TemplateResponse(
         "order.html",
         {
             "request": request,
             "table_id": table,
-            "menu_prices": menu_prices,
-            "menu_categories": menu_categories,
-            "menu_names": menu_names,
-            "menu_items": menu_items
+            "menu_items": menu_by_category
         }
     )
 
