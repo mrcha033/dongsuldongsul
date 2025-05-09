@@ -57,8 +57,10 @@ class Order(Base):
     menu = Column(JSON)
     amount = Column(Integer)
     payment_status = Column(String)  # 'pending' or 'confirmed'
+    cooking_status = Column(String, default="pending")  # 'pending', 'cooking', 'completed'
     created_at = Column(DateTime, default=datetime.utcnow)
     confirmed_at = Column(DateTime, nullable=True)
+    completed_at = Column(DateTime, nullable=True)
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
@@ -254,18 +256,43 @@ async def kitchen_display(
     db: SessionLocal = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
-    confirmed_orders = db.query(Order).filter(
-        Order.payment_status == "confirmed"
+    cooking_orders = db.query(Order).filter(
+        Order.payment_status == "confirmed",
+        Order.cooking_status.in_(["pending", "cooking"])
     ).order_by(Order.confirmed_at.desc()).all()
+    
+    completed_orders = db.query(Order).filter(
+        Order.payment_status == "confirmed",
+        Order.cooking_status == "completed"
+    ).order_by(Order.completed_at.desc()).limit(10).all()
     
     return templates.TemplateResponse(
         "kitchen.html",
         {
             "request": request,
-            "orders": confirmed_orders,
+            "cooking_orders": cooking_orders,
+            "completed_orders": completed_orders,
             "username": username
         }
     )
+
+@app.post("/kitchen/update-status/{order_id}")
+async def update_cooking_status(
+    order_id: int,
+    status: str = Form(...),
+    db: SessionLocal = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    order.cooking_status = status
+    if status == "completed":
+        order.completed_at = datetime.utcnow()
+    
+    db.commit()
+    return RedirectResponse(url="/kitchen", status_code=303)
 
 @app.get("/admin/logout")
 async def logout():
