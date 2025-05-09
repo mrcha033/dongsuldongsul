@@ -1,35 +1,138 @@
 {% extends "base.html" %}
 
-{% block title %}주문 접수 완료{% endblock %}
+{% block title %}주문 완료{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-8 offset-md-2">
-        <div class="card">
-            <div class="card-body text-center">
-                <h2 class="card-title mb-4">주문이 접수되었습니다!</h2>
-                
-                <div class="alert alert-success">
-                    <p>운영자가 입금을 확인한 후 조리를 시작합니다.</p>
-                    <p>주문 번호: {{ order.id }}</p>
-                    <p>테이블: {{ order.table_id }}</p>
-                    <p>총 금액: {{ order.amount }}원</p>
-                </div>
+<style>
+.success-animation {
+    animation: successPop 0.5s ease-out;
+}
 
-                <div class="mt-4">
-                    <h4>주문 내역</h4>
-                    <ul class="list-group">
-                        {% for menu_name, quantity in order.menu.items() %}
-                            {% if quantity > 0 %}
-                            <li class="list-group-item">
-                                {{ menu_name }}: {{ quantity }}개
-                            </li>
-                            {% endif %}
+@keyframes successPop {
+    0% { transform: scale(0.8); opacity: 0; }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); opacity: 1; }
+}
+
+.checkmark {
+    width: 80px;
+    height: 80px;
+    border-radius: 50%;
+    display: block;
+    stroke-width: 2;
+    stroke: #4bb71b;
+    stroke-miterlimit: 10;
+    box-shadow: inset 0px 0px 0px #4bb71b;
+    animation: fill .4s ease-in-out .4s forwards, scale .3s ease-in-out .9s both;
+    margin: 0 auto;
+}
+
+.checkmark__circle {
+    stroke-dasharray: 166;
+    stroke-dashoffset: 166;
+    stroke-width: 2;
+    stroke-miterlimit: 10;
+    stroke: #4bb71b;
+    fill: none;
+    animation: stroke 0.6s cubic-bezier(0.65, 0, 0.45, 1) forwards;
+}
+
+.checkmark__check {
+    transform-origin: 50% 50%;
+    stroke-dasharray: 48;
+    stroke-dashoffset: 48;
+    animation: stroke 0.3s cubic-bezier(0.65, 0, 0.45, 1) 0.8s forwards;
+}
+
+@keyframes stroke {
+    100% { stroke-dashoffset: 0; }
+}
+
+@keyframes scale {
+    0%, 100% { transform: none; }
+    50% { transform: scale3d(1.1, 1.1, 1); }
+}
+
+@keyframes fill {
+    100% { box-shadow: inset 0px 0px 0px 30px #4bb71b; }
+}
+
+.order-details {
+    animation: slideUp 0.5s ease-out 0.5s both;
+}
+
+@keyframes slideUp {
+    from { transform: translateY(20px); opacity: 0; }
+    to { transform: translateY(0); opacity: 1; }
+}
+
+.menu-item {
+    transition: transform 0.2s;
+}
+
+.menu-item:hover {
+    transform: translateX(5px);
+}
+</style>
+
+<div class="container py-5">
+    <div class="row justify-content-center">
+        <div class="col-md-8">
+            <div class="text-center mb-5 success-animation">
+                <svg class="checkmark" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 52 52">
+                    <circle class="checkmark__circle" cx="26" cy="26" r="25" fill="none"/>
+                    <path class="checkmark__check" fill="none" d="M14.1 27.2l7.1 7.2 16.7-16.8"/>
+                </svg>
+                <h1 class="mt-4 mb-3">주문이 완료되었습니다!</h1>
+                <p class="lead text-muted">테이블 {{ table_id }}의 주문이 성공적으로 접수되었습니다.</p>
+            </div>
+
+            <div class="card order-details">
+                <div class="card-header bg-light">
+                    <h3 class="mb-0">주문 내역</h3>
+                </div>
+                <div class="card-body">
+                    <ul class="list-group list-group-flush">
+                        {% for menu_id, quantity in menu.items() %}
+                        <li class="list-group-item menu-item d-flex justify-content-between align-items-center">
+                            <div>
+                                <span class="badge bg-primary rounded-pill me-2">{{ quantity }}</span>
+                                {{ menu_names[menu_id] }}
+                            </div>
+                            <span class="text-primary">{{ (menu_prices[menu_id] * quantity)|int|format(',d') }}원</span>
+                        </li>
                         {% endfor %}
                     </ul>
+                    <hr>
+                    <div class="d-flex justify-content-between align-items-center">
+                        <h4 class="mb-0">총 금액</h4>
+                        <h4 class="text-primary mb-0">{{ total_amount|int|format(',d') }}원</h4>
+                    </div>
                 </div>
+            </div>
+
+            <div class="text-center mt-4">
+                <a href="/" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-house-door"></i> 홈으로
+                </a>
+                <a href="/order?table={{ table_id }}" class="btn btn-primary">
+                    <i class="bi bi-plus-circle"></i> 추가 주문
+                </a>
             </div>
         </div>
     </div>
 </div>
+
+<audio id="successSound" preload="auto">
+    <source src="/static/sounds/order-success.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const audio = document.getElementById('successSound');
+    audio.play().catch(function(error) {
+        console.log("Audio playback failed:", error);
+    });
+});
+</script>
 {% endblock %} 

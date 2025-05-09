@@ -3,60 +3,83 @@
 {% block title %}결제 대기 주문{% endblock %}
 
 {% block content %}
-<div class="row">
-    <div class="col-md-10 offset-md-1">
-        <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>결제 대기 주문</h2>
-            <div class="d-flex align-items-center">
-                <span class="me-3">관리자: {{ username }}</span>
-                <a href="/admin/logout" class="btn btn-outline-secondary btn-sm">로그아웃</a>
-            </div>
+<div class="container">
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2>결제 대기 주문</h2>
+        <div class="d-flex align-items-center">
+            <span class="me-3">관리자: {{ username }}</span>
+            <a href="/admin/logout" class="btn btn-outline-secondary btn-sm">로그아웃</a>
         </div>
-        
+    </div>
+
+    <div id="ordersList">
         {% if orders %}
             {% for order in orders %}
-            <div class="card mb-3">
+            <div class="card mb-3" id="order-{{ order.id }}">
                 <div class="card-body">
-                    <div class="row">
-                        <div class="col-md-8">
-                            <h4>테이블 {{ order.table_id }}</h4>
-                            <p class="text-muted">주문 번호: {{ order.id }}</p>
-                            <p class="text-muted">주문 시간: {{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
-                            
-                            <h5 class="mt-3">주문 내역</h5>
-                            <ul class="list-group">
-                                {% for menu_name, quantity in order.menu.items() %}
-                                    {% if quantity > 0 %}
-                                    <li class="list-group-item">
-                                        {{ menu_name }}: {{ quantity }}개
-                                    </li>
-                                    {% endif %}
+                    <div class="d-flex justify-content-between align-items-start">
+                        <div>
+                            <h5 class="card-title">테이블 {{ order.table_id }}</h5>
+                            <p class="card-text">
+                                <small class="text-muted">주문 시간: {{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</small>
+                            </p>
+                            <ul class="list-unstyled">
+                                {% for menu_id, quantity in order.menu.items() %}
+                                <li>{{ menu_names[menu_id] }} × {{ quantity }}</li>
                                 {% endfor %}
                             </ul>
-                            
-                            <h5 class="mt-3">총 금액: {{ order.amount }}원</h5>
+                            <p class="card-text"><strong>총 금액: {{ order.amount }}원</strong></p>
                         </div>
-                        
-                        <div class="col-md-4 text-end">
-                            <form method="POST" action="/admin/orders/confirm/{{ order.id }}">
-                                <button type="submit" class="btn btn-success btn-lg">
-                                    결제 확인
-                                </button>
-                            </form>
-                        </div>
+                        <form method="POST" action="/admin/orders/confirm/{{ order.id }}">
+                            <button type="submit" class="btn btn-success">결제 확인</button>
+                        </form>
                     </div>
                 </div>
             </div>
             {% endfor %}
         {% else %}
             <div class="alert alert-info">
-                대기 중인 주문이 없습니다.
+                결제 대기 중인 주문이 없습니다.
             </div>
         {% endif %}
-        
-        <div class="mt-4">
-            <a href="/kitchen" class="btn btn-primary">주방 화면 보기</a>
-        </div>
+    </div>
+
+    <div class="mt-4">
+        <a href="/admin/menu" class="btn btn-primary">메뉴 관리</a>
+        <a href="/kitchen" class="btn btn-primary ms-2">주방 화면</a>
     </div>
 </div>
+
+<script>
+// WebSocket 연결 설정
+const ws = new WebSocket(`ws://${window.location.host}/ws`);
+
+// 소리 알림 설정
+const notificationSound = new Audio('/static/notification.mp3');
+
+ws.onmessage = function(event) {
+    const data = JSON.parse(event.data);
+    
+    if (data.type === 'new_order') {
+        // 소리 알림 재생
+        notificationSound.play();
+        
+        // 브라우저 알림 표시
+        if (Notification.permission === "granted") {
+            new Notification("새 주문", {
+                body: `테이블 ${data.table_id}에서 ${data.amount}원 주문이 들어왔습니다.`,
+                icon: "/static/logo.png"
+            });
+        }
+        
+        // 페이지 새로고침
+        location.reload();
+    }
+};
+
+// 브라우저 알림 권한 요청
+if (Notification.permission !== "granted" && Notification.permission !== "denied") {
+    Notification.requestPermission();
+}
+</script>
 {% endblock %} 

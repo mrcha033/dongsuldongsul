@@ -1,4 +1,4 @@
-from fastapi import FastAPI, Request, Form, Depends, HTTPException, status
+from fastapi import FastAPI, Request, Form, Depends, HTTPException, status, UploadFile, File
 from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
@@ -13,6 +13,10 @@ import qrcode
 from io import BytesIO
 import base64
 import secrets
+import shutil
+from typing import Optional, List
+from fastapi import WebSocket
+from fastapi import WebSocketDisconnect
 
 # FastAPI 앱 생성
 app = FastAPI()
@@ -42,6 +46,10 @@ def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
 QR_DIR = "static/qr"
 os.makedirs(QR_DIR, exist_ok=True)
 
+# 업로드 디렉토리 생성
+UPLOAD_DIR = "static/uploads"
+os.makedirs(UPLOAD_DIR, exist_ok=True)
+
 # 데이터베이스 설정
 SQLALCHEMY_DATABASE_URL = "sqlite:///./orders.db"
 engine = create_engine(SQLALCHEMY_DATABASE_URL)
@@ -70,6 +78,8 @@ class MenuItem(Base):
     name_en = Column(String, unique=True, index=True)  # 영문 이름 (코드용)
     price = Column(Integer)
     category = Column(String)  # 'drinks', 'main_dishes', 'side_dishes'
+    description = Column(String, nullable=True)  # 메뉴 설명
+    image_filename = Column(String, nullable=True)  # 이미지 파일명
     is_active = Column(Boolean, default=True)
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -227,6 +237,14 @@ async def submit_order(
     db.add(order)
     db.commit()
     db.refresh(order)
+    
+    # WebSocket을 통해 새 주문 알림 전송
+    await manager.broadcast(json.dumps({
+        "type": "new_order",
+        "order_id": order.id,
+        "table_id": table_id,
+        "amount": amount
+    }))
     
     return templates.TemplateResponse(
         "order_success.html",
@@ -388,16 +406,36 @@ async def add_menu_item(
     name_en: str = Form(...),
     price: int = Form(...),
     category: str = Form(...),
+    description: str = Form(None),
+    image: Optional[UploadFile] = File(None),
     db: SessionLocal = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     """새 메뉴 추가"""
     try:
+        # 이미지 파일 처리
+        image_filename = None
+        if image:
+            # 파일 확장자 검사
+            if not image.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
+            
+            # 파일명 생성 (timestamp + original filename)
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            image_filename = f"{timestamp}_{image.filename}"
+            file_path = os.path.join(UPLOAD_DIR, image_filename)
+            
+            # 파일 저장
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+
         menu_item = MenuItem(
             name_kr=name_kr,
             name_en=name_en,
             price=price,
-            category=category
+            category=category,
+            description=description,
+            image_filename=image_filename
         )
         db.add(menu_item)
         db.commit()
@@ -413,7 +451,9 @@ async def update_menu_item(
     name_en: str = Form(...),
     price: int = Form(...),
     category: str = Form(...),
+    description: str = Form(None),
     is_active: bool = Form(False),
+    image: Optional[UploadFile] = File(None),
     db: SessionLocal = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
@@ -423,10 +463,33 @@ async def update_menu_item(
         raise HTTPException(status_code=404, detail="Menu item not found")
     
     try:
+        # 이미지 파일 처리
+        if image:
+            # 파일 확장자 검사
+            if not image.content_type.startswith('image/'):
+                raise HTTPException(status_code=400, detail="이미지 파일만 업로드 가능합니다.")
+            
+            # 기존 이미지 삭제
+            if menu_item.image_filename:
+                old_file_path = os.path.join(UPLOAD_DIR, menu_item.image_filename)
+                if os.path.exists(old_file_path):
+                    os.remove(old_file_path)
+            
+            # 새 이미지 저장
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            image_filename = f"{timestamp}_{image.filename}"
+            file_path = os.path.join(UPLOAD_DIR, image_filename)
+            
+            with open(file_path, "wb") as buffer:
+                shutil.copyfileobj(image.file, buffer)
+            
+            menu_item.image_filename = image_filename
+
         menu_item.name_kr = name_kr
         menu_item.name_en = name_en
         menu_item.price = price
         menu_item.category = category
+        menu_item.description = description
         menu_item.is_active = is_active
         db.commit()
         return RedirectResponse(url="/admin/menu", status_code=303)
@@ -445,9 +508,43 @@ async def delete_menu_item(
     if not menu_item:
         raise HTTPException(status_code=404, detail="Menu item not found")
     
+    # 이미지 파일 삭제
+    if menu_item.image_filename:
+        file_path = os.path.join(UPLOAD_DIR, menu_item.image_filename)
+        if os.path.exists(file_path):
+            os.remove(file_path)
+    
     menu_item.is_active = False
     db.commit()
     return RedirectResponse(url="/admin/menu", status_code=303)
+
+# WebSocket 연결 관리를 위한 클래스
+class ConnectionManager:
+    def __init__(self):
+        self.active_connections: List[WebSocket] = []
+
+    async def connect(self, websocket: WebSocket):
+        await websocket.accept()
+        self.active_connections.append(websocket)
+
+    def disconnect(self, websocket: WebSocket):
+        self.active_connections.remove(websocket)
+
+    async def broadcast(self, message: str):
+        for connection in self.active_connections:
+            await connection.send_text(message)
+
+manager = ConnectionManager()
+
+@app.websocket("/ws")
+async def websocket_endpoint(websocket: WebSocket):
+    await manager.connect(websocket)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            await manager.broadcast(f"Message text was: {data}")
+    except WebSocketDisconnect:
+        manager.disconnect(websocket)
 
 if __name__ == "__main__":
     import uvicorn

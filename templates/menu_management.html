@@ -19,7 +19,7 @@
                 <h4 class="mb-0">새 메뉴 추가</h4>
             </div>
             <div class="card-body">
-                <form method="POST" action="/admin/menu/add">
+                <form method="POST" action="/admin/menu/add" enctype="multipart/form-data">
                     <div class="row">
                         <div class="col-md-3">
                             <div class="mb-3">
@@ -51,9 +51,22 @@
                         </div>
                         <div class="col-md-2">
                             <div class="mb-3">
-                                <label class="form-label">&nbsp;</label>
-                                <button type="submit" class="btn btn-primary w-100">추가</button>
+                                <label for="image" class="form-label">이미지</label>
+                                <input type="file" class="form-control" id="image" name="image" accept="image/*">
                             </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12">
+                            <div class="mb-3">
+                                <label for="description" class="form-label">메뉴 설명</label>
+                                <textarea class="form-control" id="description" name="description" rows="2"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="row">
+                        <div class="col-12 text-end">
+                            <button type="submit" class="btn btn-primary">추가</button>
                         </div>
                     </div>
                 </form>
@@ -71,10 +84,12 @@
                         <table class="table">
                             <thead>
                                 <tr>
+                                    <th>이미지</th>
                                     <th>한글 이름</th>
                                     <th>영문 이름</th>
                                     <th>가격</th>
                                     <th>카테고리</th>
+                                    <th>설명</th>
                                     <th>상태</th>
                                     <th>작업</th>
                                 </tr>
@@ -83,7 +98,16 @@
                                 {% for item in menu_items %}
                                 <tr>
                                     <td>
-                                        <form method="POST" action="/admin/menu/update/{{ item.id }}" class="d-inline">
+                                        <form method="POST" action="/admin/menu/update/{{ item.id }}" enctype="multipart/form-data" class="d-inline">
+                                            {% if item.image_filename %}
+                                            <img src="/static/uploads/{{ item.image_filename }}" 
+                                                 alt="{{ item.name_kr }}" 
+                                                 class="img-thumbnail" 
+                                                 style="max-width: 100px; max-height: 100px;">
+                                            {% endif %}
+                                            <input type="file" class="form-control mt-2" name="image" accept="image/*">
+                                    </td>
+                                    <td>
                                             <input type="text" class="form-control" name="name_kr" value="{{ item.name_kr }}" required>
                                     </td>
                                     <td>
@@ -98,6 +122,9 @@
                                                 <option value="main_dishes" {% if item.category == "main_dishes" %}selected{% endif %}>메인 요리</option>
                                                 <option value="side_dishes" {% if item.category == "side_dishes" %}selected{% endif %}>사이드 메뉴</option>
                                             </select>
+                                    </td>
+                                    <td>
+                                            <textarea class="form-control" name="description" rows="2">{{ item.description or '' }}</textarea>
                                     </td>
                                     <td>
                                             <div class="form-check">
