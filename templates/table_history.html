@@ -1,0 +1,147 @@
+{% extends "base.html" %}
+
+{% block title %}테이블 {{ table_id }} 주문 내역{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 offset-md-1">
+        <div class="d-flex justify-content-between align-items-center mb-4">
+            <h2>테이블 {{ table_id }} 주문 내역</h2>
+            <div class="d-flex align-items-center">
+                <span class="me-3">관리자: {{ username }}</span>
+                <a href="/admin/logout" class="btn btn-outline-secondary btn-sm">로그아웃</a>
+            </div>
+        </div>
+
+        <!-- 필터 버튼 -->
+        <div class="mb-4">
+            <div class="btn-group me-2">
+                <a href="/admin/table/{{ table_id }}" 
+                   class="btn btn-outline-primary {% if not current_status %}active{% endif %}">
+                    전체
+                </a>
+                <a href="/admin/table/{{ table_id }}?status=pending" 
+                   class="btn btn-outline-primary {% if current_status == 'pending' %}active{% endif %}">
+                    결제 대기
+                </a>
+                <a href="/admin/table/{{ table_id }}?status=cooking" 
+                   class="btn btn-outline-primary {% if current_status == 'cooking' %}active{% endif %}">
+                    조리 중
+                </a>
+                <a href="/admin/table/{{ table_id }}?status=completed" 
+                   class="btn btn-outline-primary {% if current_status == 'completed' %}active{% endif %}">
+                    완료
+                </a>
+            </div>
+            
+            <div class="btn-group">
+                <a href="/admin/table/{{ table_id }}{% if current_status %}?status={{ current_status }}{% endif %}&limit=10" 
+                   class="btn btn-outline-secondary {% if current_limit == 10 %}active{% endif %}">
+                    최근 10건
+                </a>
+                <a href="/admin/table/{{ table_id }}{% if current_status %}?status={{ current_status }}{% endif %}&limit=50" 
+                   class="btn btn-outline-secondary {% if current_limit == 50 %}active{% endif %}">
+                    최근 50건
+                </a>
+                <a href="/admin/table/{{ table_id }}{% if current_status %}?status={{ current_status }}{% endif %}&limit=100" 
+                   class="btn btn-outline-secondary {% if current_limit == 100 %}active{% endif %}">
+                    최근 100건
+                </a>
+            </div>
+        </div>
+
+        <!-- 주문 내역 -->
+        {% if orders %}
+            <div class="alert alert-info">
+                총 {{ total_orders }}건의 주문이 있습니다.
+            </div>
+            
+            {% for order in orders %}
+            <div class="card mb-3">
+                <div class="card-body">
+                    <div class="row">
+                        <div class="col-md-8">
+                            <div class="d-flex justify-content-between align-items-start">
+                                <div>
+                                    <h4>주문 #{{ order.id }}</h4>
+                                    <p class="text-muted">주문 시간: {{ order.created_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                                </div>
+                                <div>
+                                    {% if order.payment_status == "pending" %}
+                                        <span class="badge bg-warning">결제 대기</span>
+                                    {% elif order.cooking_status == "pending" %}
+                                        <span class="badge bg-info">조리 대기</span>
+                                    {% elif order.cooking_status == "cooking" %}
+                                        <span class="badge bg-primary">조리 중</span>
+                                    {% elif order.cooking_status == "completed" %}
+                                        <span class="badge bg-success">완료</span>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            
+                            <h5 class="mt-3">주문 내역</h5>
+                            <ul class="list-group">
+                                {% for menu_name, quantity in order.menu.items() %}
+                                    {% if quantity > 0 %}
+                                    <li class="list-group-item">
+                                        {{ menu_name }}: {{ quantity }}개
+                                    </li>
+                                    {% endif %}
+                                {% endfor %}
+                            </ul>
+                            
+                            <h5 class="mt-3">총 금액: {{ order.amount }}원</h5>
+                            
+                            {% if order.confirmed_at %}
+                            <p class="text-muted">결제 확인: {{ order.confirmed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                            {% endif %}
+                            
+                            {% if order.completed_at %}
+                            <p class="text-muted">조리 완료: {{ order.completed_at.strftime('%Y-%m-%d %H:%M:%S') }}</p>
+                            {% endif %}
+                        </div>
+                        
+                        <div class="col-md-4 text-end">
+                            {% if order.payment_status == "pending" %}
+                            <form method="POST" action="/admin/orders/confirm/{{ order.id }}" class="mb-2">
+                                <button type="submit" class="btn btn-success btn-lg w-100">
+                                    결제 확인
+                                </button>
+                            </form>
+                            {% endif %}
+                            
+                            {% if order.payment_status == "confirmed" and order.cooking_status == "pending" %}
+                            <form method="POST" action="/kitchen/update-status/{{ order.id }}" class="mb-2">
+                                <input type="hidden" name="status" value="cooking">
+                                <button type="submit" class="btn btn-primary btn-lg w-100">
+                                    조리 시작
+                                </button>
+                            </form>
+                            {% endif %}
+                            
+                            {% if order.cooking_status == "cooking" %}
+                            <form method="POST" action="/kitchen/update-status/{{ order.id }}">
+                                <input type="hidden" name="status" value="completed">
+                                <button type="submit" class="btn btn-success btn-lg w-100">
+                                    조리 완료
+                                </button>
+                            </form>
+                            {% endif %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+        {% else %}
+            <div class="alert alert-info">
+                주문 내역이 없습니다.
+            </div>
+        {% endif %}
+        
+        <div class="mt-4">
+            <a href="/admin/orders" class="btn btn-primary">결제 대기 주문 보기</a>
+            <a href="/kitchen" class="btn btn-primary ms-2">주방 화면 보기</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 
