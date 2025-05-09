@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+
+{% block title %}주문 접수 완료{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2">
+        <div class="card">
+            <div class="card-body text-center">
+                <h2 class="card-title mb-4">주문이 접수되었습니다!</h2>
+                
+                <div class="alert alert-success">
+                    <p>운영자가 입금을 확인한 후 조리를 시작합니다.</p>
+                    <p>주문 번호: {{ order.id }}</p>
+                    <p>테이블: {{ order.table_id }}</p>
+                    <p>총 금액: {{ order.amount }}원</p>
+                </div>
+
+                <div class="mt-4">
+                    <h4>주문 내역</h4>
+                    <ul class="list-group">
+                        {% for menu_name, quantity in order.menu.items() %}
+                            {% if quantity > 0 %}
+                            <li class="list-group-item">
+                                {{ menu_name }}: {{ quantity }}개
+                            </li>
+                            {% endif %}
+                        {% endfor %}
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %} 

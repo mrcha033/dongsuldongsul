@@ -1,0 +1,55 @@
+{% extends "base.html" %}
+
+{% block title %}주문 시스템{% endblock %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-8 offset-md-2 text-center">
+        <h1 class="mb-4">주문 시스템</h1>
+        
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title">테이블 선택</h2>
+                <div class="row mt-4">
+                    {% for table in range(1, 11) %}
+                    <div class="col-md-3 mb-3">
+                        <a href="/order?table={{ table }}" class="btn btn-primary btn-lg w-100">
+                            테이블 {{ table }}
+                        </a>
+                    </div>
+                    {% endfor %}
+                </div>
+            </div>
+        </div>
+
+        <div class="card mb-4">
+            <div class="card-body">
+                <h2 class="card-title">QR 코드 다운로드</h2>
+                <div class="row mt-4">
+                    <div class="col-md-6 mb-3">
+                        <a href="/generate-all-qr" class="btn btn-success btn-lg w-100">
+                            모든 QR 코드 다운로드 (ZIP)
+                        </a>
+                    </div>
+                    <div class="col-md-6">
+                        <div class="row">
+                            {% for table in range(1, 11) %}
+                            <div class="col-md-4 mb-2">
+                                <a href="/generate-qr/{{ table }}" class="btn btn-outline-primary btn-sm w-100">
+                                    테이블 {{ table }} QR
+                                </a>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="mt-4">
+            <a href="/admin/orders" class="btn btn-secondary">관리자 페이지</a>
+            <a href="/kitchen" class="btn btn-secondary">주방 화면</a>
+        </div>
+    </div>
+</div>
+{% endblock %} 
