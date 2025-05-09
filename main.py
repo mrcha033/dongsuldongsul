@@ -27,8 +27,8 @@ templates = Jinja2Templates(directory="templates")
 
 # 관리자 인증 설정
 security = HTTPBasic()
-ADMIN_USERNAME = "admin"
-ADMIN_PASSWORD = "your-secure-password"  # 실제 운영시에는 환경 변수로 관리
+ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
+ADMIN_PASSWORD = os.getenv("ADMIN_PASSWORD", "your-secure-password")
 
 def verify_admin(credentials: HTTPBasicCredentials = Depends(security)):
     correct_username = secrets.compare_digest(credentials.username, ADMIN_USERNAME)
