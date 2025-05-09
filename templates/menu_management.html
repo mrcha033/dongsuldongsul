@@ -77,7 +77,7 @@
                                     <div>{{ item.name_kr }}</div>
                                     <small class="text-muted">{{ item.name_en }}</small>
                                 </td>
-                                <td>{{ item.price|int|format(',d') }}원</td>
+                                <td>{{ "{:,}".format(item.price|int) }}원</td>
                                 <td>
                                     {% if item.category == 'drinks' %}
                                     <span class="badge bg-info">음료</span>
