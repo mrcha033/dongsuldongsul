@@ -3,116 +3,71 @@
 {% block title %}주문하기 - 테이블 {{ table_id }}{% endblock %}
 
 {% block content %}
-<style>
-.menu-card {
-    transition: transform 0.2s, box-shadow 0.2s;
-}
-
-.menu-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
-}
-
-.quantity-btn {
-    width: 36px;
-    height: 36px;
-    padding: 0;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.quantity-input {
-    width: 60px;
-    text-align: center;
-    font-weight: bold;
-}
-
-.menu-image {
-    height: 120px;
-    object-fit: cover;
-}
-
-.menu-description {
-    font-size: 0.9rem;
-    color: #6c757d;
-    margin-bottom: 0.5rem;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
-}
-
-.order-summary-item {
-    transition: background-color 0.2s;
-}
-
-.order-summary-item:hover {
-    background-color: #f8f9fa;
-}
-
-@keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
-}
-
-.animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
-}
-</style>
-
 <div class="row">
     <div class="col-md-8">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>테이블 {{ table_id }} 주문</h2>
-            <a href="/" class="btn btn-outline-secondary">
-                <i class="bi bi-arrow-left"></i> 돌아가기
+            <h2>
+                <i class="bi bi-table me-2"></i>테이블 {{ table_id }}
+            </h2>
+            <a href="/" class="btn btn-outline-primary">
+                <i class="bi bi-house-door me-2"></i>홈으로
             </a>
         </div>
-        
-        <form id="orderForm" method="POST" action="/submit_order">
-            <input type="hidden" name="table_id" value="{{ table_id }}">
-            <input type="hidden" name="menu" id="menuInput">
-            
-            <!-- 메뉴 카테고리별 섹션 -->
-            {% for category_id, category in menu_categories.items() %}
-            <div class="card mb-4 animate-fade-in">
-                <div class="card-header bg-light">
-                    <h3 class="mb-0">{{ category.name }}</h3>
-                </div>
-                <div class="card-body">
-                    <div class="row">
-                        {% for menu_id in category.items %}
-                        <div class="col-md-6 mb-3">
-                            <div class="card h-100 menu-card">
-                                <div class="row g-0">
-                                    <div class="col-4">
-                                        {% if menu_items[menu_id].image_filename %}
-                                        <img src="/static/uploads/{{ menu_items[menu_id].image_filename }}" 
-                                             class="img-fluid rounded-start menu-image" 
-                                             alt="{{ menu_names[menu_id] }}">
-                                        {% else %}
-                                        <div class="bg-light h-100 d-flex align-items-center justify-content-center">
-                                            <i class="bi bi-image text-muted" style="font-size: 2rem;"></i>
-                                        </div>
-                                        {% endif %}
+
+        {% for category_name, items in menu_items.items() %}
+        <div class="card mb-4 animate-fade-in">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    {% if category_name == 'drinks' %}
+                    <i class="bi bi-cup-hot me-2"></i>음료
+                    {% elif category_name == 'main_dishes' %}
+                    <i class="bi bi-egg-fried me-2"></i>메인 요리
+                    {% else %}
+                    <i class="bi bi-basket me-2"></i>사이드 메뉴
+                    {% endif %}
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="row row-cols-1 row-cols-md-2 g-4">
+                    {% for item in items %}
+                    <div class="col">
+                        <div class="menu-card">
+                            <div class="row g-0">
+                                <div class="col-4">
+                                    {% if item.image_filename %}
+                                    <img src="/static/uploads/{{ item.image_filename }}" 
+                                         class="menu-image" 
+                                         alt="{{ item.name_kr }}">
+                                    {% else %}
+                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light">
+                                        <i class="bi bi-image text-muted fs-1"></i>
                                     </div>
-                                    <div class="col-8">
-                                        <div class="card-body">
-                                            <h5 class="card-title mb-1">{{ menu_names[menu_id] }}</h5>
-                                            <p class="card-text text-primary fw-bold mb-2">{{ menu_prices[menu_id] }}원</p>
-                                            {% if menu_items[menu_id].description %}
-                                            <p class="menu-description">{{ menu_items[menu_id].description }}</p>
-                                            {% endif %}
-                                            <div class="input-group">
-                                                <button type="button" class="btn btn-outline-secondary quantity-btn" 
-                                                        onclick="updateQuantity('{{ menu_id }}', -1)">
+                                    {% endif %}
+                                </div>
+                                <div class="col-8">
+                                    <div class="p-3">
+                                        <h5 class="mb-1">{{ item.name_kr }}</h5>
+                                        <small class="text-muted d-block mb-2">{{ item.name_en }}</small>
+                                        {% if item.description %}
+                                        <p class="menu-description">{{ item.description }}</p>
+                                        {% endif %}
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="price">{{ "{:,}".format(item.price|int) }}원</span>
+                                            <div class="quantity-controls">
+                                                <button type="button" 
+                                                        class="quantity-btn" 
+                                                        onclick="updateQuantity('{{ item.id }}', -1)">
                                                     <i class="bi bi-dash"></i>
                                                 </button>
-                                                <input type="number" class="form-control quantity-input" 
-                                                       id="quantity_{{ menu_id }}" value="0" min="0" readonly>
-                                                <button type="button" class="btn btn-outline-secondary quantity-btn" 
-                                                        onclick="updateQuantity('{{ menu_id }}', 1)">
+                                                <input type="number" 
+                                                       id="quantity-{{ item.id }}" 
+                                                       class="quantity-input" 
+                                                       value="0" 
+                                                       min="0" 
+                                                       readonly>
+                                                <button type="button" 
+                                                        class="quantity-btn" 
+                                                        onclick="updateQuantity('{{ item.id }}', 1)">
                                                     <i class="bi bi-plus"></i>
                                                 </button>
                                             </div>
@@ -121,29 +76,35 @@
                                 </div>
                             </div>
                         </div>
-                        {% endfor %}
                     </div>
+                    {% endfor %}
                 </div>
             </div>
-            {% endfor %}
-        </form>
+        </div>
+        {% endfor %}
     </div>
-    
+
     <div class="col-md-4">
         <div class="card sticky-top" style="top: 20px;">
-            <div class="card-header bg-primary text-white">
-                <h3 class="mb-0">주문 내역</h3>
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="bi bi-cart me-2"></i>주문 내역
+                </h3>
             </div>
             <div class="card-body">
-                <div id="orderSummary">
-                    <p class="text-muted">주문한 메뉴가 없습니다.</p>
+                <div id="order-summary">
+                    <!-- 주문 내역이 여기에 동적으로 추가됩니다 -->
                 </div>
                 <hr>
                 <div class="d-flex justify-content-between align-items-center mb-3">
-                    <h4>총 금액</h4>
-                    <h4 id="totalAmount" class="text-primary">0원</h4>
+                    <h4 class="mb-0">총 금액</h4>
+                    <h4 class="mb-0" id="total-amount">0원</h4>
                 </div>
-                <button type="button" class="btn btn-primary btn-lg w-100" onclick="submitOrder()" disabled id="submitButton">
+                <button type="button" 
+                        class="btn btn-primary w-100" 
+                        onclick="submitOrder()" 
+                        id="submit-order-btn" 
+                        disabled>
                     <i class="bi bi-check-circle me-2"></i>주문하기
                 </button>
             </div>
@@ -153,64 +114,97 @@
 
 <script>
 let orderItems = {};
-const menuPrices = {{ menu_prices|tojson }};
-const menuNames = {{ menu_names|tojson }};
 
-function updateQuantity(menuId, change) {
-    const input = document.getElementById(`quantity_${menuId}`);
-    const newValue = Math.max(0, parseInt(input.value) + change);
+function updateQuantity(itemId, change) {
+    const input = document.getElementById(`quantity-${itemId}`);
+    const currentValue = parseInt(input.value);
+    const newValue = Math.max(0, currentValue + change);
+    
     input.value = newValue;
     
     if (newValue > 0) {
-        orderItems[menuId] = newValue;
+        orderItems[itemId] = newValue;
     } else {
-        delete orderItems[menuId];
+        delete orderItems[itemId];
     }
     
     updateOrderSummary();
 }
 
 function updateOrderSummary() {
-    const summary = document.getElementById('orderSummary');
-    const totalAmount = document.getElementById('totalAmount');
-    const submitButton = document.getElementById('submitButton');
-    
-    if (Object.keys(orderItems).length === 0) {
-        summary.innerHTML = '<p class="text-muted">주문한 메뉴가 없습니다.</p>';
-        totalAmount.textContent = '0원';
-        submitButton.disabled = true;
-        return;
-    }
-    
-    let html = '<ul class="list-group">';
+    const summary = document.getElementById('order-summary');
+    const totalAmount = document.getElementById('total-amount');
+    const submitButton = document.getElementById('submit-order-btn');
     let total = 0;
     
-    for (const [menuId, quantity] of Object.entries(orderItems)) {
-        const price = menuPrices[menuId];
-        const name = menuNames[menuId];
-        const itemTotal = price * quantity;
+    summary.innerHTML = '';
+    
+    for (const [itemId, quantity] of Object.entries(orderItems)) {
+        const item = menuItems[itemId];
+        const itemTotal = item.price * quantity;
         total += itemTotal;
         
-        html += [
-            '<li class="list-group-item order-summary-item d-flex justify-content-between align-items-center">',
-            '    <div>',
-            `        <span class="badge bg-primary rounded-pill me-2">${quantity}</span>`,
-            `        ${name}`,
-            '    </div>',
-            `    <span>${itemTotal.toLocaleString()}원</span>`,
-            '</li>'
-        ].join('\n');
+        const itemElement = document.createElement('div');
+        itemElement.className = 'order-summary-item';
+        itemElement.innerHTML = `
+            <div class="d-flex justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-0">${item.name_kr}</h6>
+                    <small class="text-muted">${item.name_en}</small>
+                </div>
+                <div class="text-end">
+                    <div>${quantity}개</div>
+                    <div class="text-primary">${itemTotal.toLocaleString()}원</div>
+                </div>
+            </div>
+        `;
+        summary.appendChild(itemElement);
     }
     
-    html += '</ul>';
-    summary.innerHTML = html;
     totalAmount.textContent = `${total.toLocaleString()}원`;
-    submitButton.disabled = false;
+    submitButton.disabled = total === 0;
 }
 
-function submitOrder() {
-    document.getElementById('menuInput').value = JSON.stringify(orderItems);
-    document.getElementById('orderForm').submit();
+async function submitOrder() {
+    const submitButton = document.getElementById('submit-order-btn');
+    submitButton.disabled = true;
+    submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>주문 처리 중...';
+    
+    try {
+        const response = await fetch('/order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                table_id: {{ table_id }},
+                menu: orderItems
+            })
+        });
+        
+        if (response.ok) {
+            window.location.href = '/order/success';
+        } else {
+            throw new Error('주문 처리 중 오류가 발생했습니다.');
+        }
+    } catch (error) {
+        alert(error.message);
+        submitButton.disabled = false;
+        submitButton.innerHTML = '<i class="bi bi-check-circle me-2"></i>주문하기';
+    }
 }
+
+// 메뉴 데이터를 JavaScript 변수로 저장
+const menuItems = {
+    {% for category_name, items in menu_items.items() %}
+        {% for item in items %}
+            '{{ item.id }}': {
+                name_kr: '{{ item.name_kr }}',
+                name_en: '{{ item.name_en }}',
+                price: {{ item.price }}
+            },
+        {% endfor %}
+    {% endfor %}
+};
 </script>
 {% endblock %} 

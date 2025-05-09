@@ -1,28 +1,34 @@
 /* Global Styles */
 :root {
-    --primary-color: #4a90e2;
-    --secondary-color: #6c757d;
-    --success-color: #28a745;
-    --danger-color: #dc3545;
-    --warning-color: #ffc107;
-    --info-color: #17a2b8;
-    --light-color: #f8f9fa;
-    --dark-color: #343a40;
-    --border-radius: 0.5rem;
-    --box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
-    --transition: all 0.3s ease;
+    /* 동물의 숲 스타일 색상 */
+    --primary-color: #A4D4AE;    /* 파스텔 그린 */
+    --secondary-color: #FBC9C9;  /* 파스텔 핑크 */
+    --success-color: #FFD166;    /* 따뜻한 노랑 */
+    --danger-color: #FF6B6B;     /* 부드러운 레드 */
+    --warning-color: #FFE66D;    /* 밝은 노랑 */
+    --info-color: #95E1D3;       /* 민트 */
+    --light-color: #FFFBEF;      /* 따뜻한 화이트 */
+    --dark-color: #4B4B4B;       /* 부드러운 그레이 */
+    --border-color: #E8D5B5;     /* 따뜻한 베이지 */
+    --bg-color: #F0F8E2;         /* 민트 그린 배경 */
+    
+    /* 공통 스타일 */
+    --border-radius: 16px;
+    --box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+    --transition: all 0.2s ease-in-out;
 }
 
 body {
-    font-family: 'Noto Sans KR', sans-serif;
+    font-family: 'Baloo 2', 'Nanum Gothic Coding', sans-serif;
     line-height: 1.6;
     color: var(--dark-color);
-    background-color: #f5f7fa;
+    background-color: var(--bg-color);
 }
 
 /* Card Styles */
 .card {
-    border: none;
+    background-color: var(--light-color);
+    border: 2px solid var(--border-color);
     border-radius: var(--border-radius);
     box-shadow: var(--box-shadow);
     transition: var(--transition);
@@ -30,21 +36,24 @@ body {
 
 .card:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .card-header {
-    background-color: white;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    background-color: var(--primary-color);
+    color: white;
+    border-bottom: 2px solid var(--border-color);
+    border-radius: var(--border-radius) var(--border-radius) 0 0;
     padding: 1rem;
 }
 
 /* Button Styles */
 .btn {
     border-radius: var(--border-radius);
-    padding: 0.5rem 1rem;
+    padding: 0.6em 1.2em;
     transition: var(--transition);
-    font-weight: 500;
+    font-weight: 600;
+    border: 2px solid transparent;
 }
 
 .btn-primary {
@@ -53,9 +62,9 @@ body {
 }
 
 .btn-primary:hover {
-    background-color: #357abd;
-    border-color: #357abd;
-    transform: translateY(-1px);
+    background-color: #92c7a1;
+    border-color: #92c7a1;
+    transform: translateY(-2px);
 }
 
 .btn-outline-primary {
@@ -66,17 +75,21 @@ body {
 .btn-outline-primary:hover {
     background-color: var(--primary-color);
     color: white;
-    transform: translateY(-1px);
+    transform: translateY(-2px);
 }
 
 /* Menu Card Styles */
 .menu-card {
     height: 100%;
-    border: 1px solid rgba(0, 0, 0, 0.1);
+    background-color: var(--light-color);
+    border: 2px solid var(--border-color);
+    border-radius: var(--border-radius);
     transition: var(--transition);
+    overflow: hidden;
 }
 
 .menu-card:hover {
+    transform: translateY(-2px);
     border-color: var(--primary-color);
 }
 
@@ -88,7 +101,7 @@ body {
 
 .menu-description {
     font-size: 0.9rem;
-    color: var(--secondary-color);
+    color: var(--dark-color);
     margin-bottom: 0.5rem;
     display: -webkit-box;
     -webkit-line-clamp: 2;
@@ -105,6 +118,15 @@ body {
     align-items: center;
     justify-content: center;
     border-radius: var(--border-radius);
+    background-color: var(--primary-color);
+    color: white;
+    border: none;
+    transition: var(--transition);
+}
+
+.quantity-btn:hover {
+    background-color: #92c7a1;
+    transform: translateY(-2px);
 }
 
 .quantity-input {
@@ -112,6 +134,7 @@ body {
     text-align: center;
     font-weight: bold;
     border-radius: var(--border-radius);
+    border: 2px solid var(--border-color);
 }
 
 /* Order Summary */
@@ -119,39 +142,51 @@ body {
     transition: var(--transition);
     border-radius: var(--border-radius);
     margin-bottom: 0.5rem;
+    background-color: var(--light-color);
+    border: 2px solid var(--border-color);
+    padding: 0.8rem;
 }
 
 .order-summary-item:hover {
-    background-color: var(--light-color);
+    background-color: var(--primary-color);
+    color: white;
 }
 
 /* Animations */
 @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(10px); }
-    to { opacity: 1; transform: translateY(0); }
+    from { 
+        opacity: 0; 
+        transform: translateY(10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateY(0); 
+    }
 }
 
 .animate-fade-in {
-    animation: fadeIn 0.3s ease-out;
+    animation: fadeIn 0.5s ease-out;
 }
 
 /* Table Styles */
 .table {
-    background-color: white;
+    background-color: var(--light-color);
     border-radius: var(--border-radius);
     overflow: hidden;
+    border: 2px solid var(--border-color);
 }
 
 .table thead th {
-    background-color: var(--light-color);
-    border-bottom: 2px solid rgba(0, 0, 0, 0.1);
+    background-color: var(--primary-color);
+    color: white;
+    border-bottom: 2px solid var(--border-color);
     font-weight: 600;
 }
 
 /* Status Badges */
 .badge {
     padding: 0.5em 0.8em;
-    border-radius: var(--border-radius);
+    border-radius: 12px;
     font-weight: 500;
 }
 
@@ -167,27 +202,29 @@ body {
 
 .badge-completed {
     background-color: var(--success-color);
-    color: white;
+    color: var(--dark-color);
 }
 
 /* Form Controls */
 .form-control {
     border-radius: var(--border-radius);
-    border: 1px solid rgba(0, 0, 0, 0.1);
-    padding: 0.5rem 1rem;
+    border: 2px solid var(--border-color);
+    padding: 0.6em 1em;
     transition: var(--transition);
+    background-color: var(--light-color);
 }
 
 .form-control:focus {
     border-color: var(--primary-color);
-    box-shadow: 0 0 0 0.2rem rgba(74, 144, 226, 0.25);
+    box-shadow: 0 0 0 0.2rem rgba(164, 212, 174, 0.25);
 }
 
 /* Navigation */
 .navbar {
-    background-color: white;
+    background-color: var(--light-color);
     box-shadow: var(--box-shadow);
     padding: 1rem 0;
+    border-radius: 0 0 var(--border-radius) var(--border-radius);
 }
 
 .navbar-brand {
@@ -195,81 +232,24 @@ body {
     color: var(--primary-color);
 }
 
-/* Responsive Design */
-@media (max-width: 768px) {
-    .menu-card {
-        margin-bottom: 1rem;
-    }
-    
-    .menu-image {
-        height: 100px;
-    }
-    
-    .card-body {
-        padding: 1rem;
-    }
-}
-
-/* Loading Spinner */
-.spinner {
-    width: 40px;
-    height: 40px;
-    border: 4px solid var(--light-color);
-    border-top: 4px solid var(--primary-color);
-    border-radius: 50%;
-    animation: spin 1s linear infinite;
-}
-
-@keyframes spin {
-    0% { transform: rotate(0deg); }
-    100% { transform: rotate(360deg); }
-}
-
-/* Toast Notifications */
-.toast {
-    position: fixed;
-    top: 20px;
-    right: 20px;
-    background-color: white;
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-    padding: 1rem;
-    z-index: 1000;
-    animation: slideIn 0.3s ease-out;
-}
-
-@keyframes slideIn {
-    from { transform: translateX(100%); opacity: 0; }
-    to { transform: translateX(0); opacity: 1; }
-}
-
-/* QR Code Display */
-.qr-code-container {
-    background-color: white;
-    padding: 1rem;
-    border-radius: var(--border-radius);
-    box-shadow: var(--box-shadow);
-    text-align: center;
-}
-
-.qr-code-container img {
-    max-width: 200px;
-    height: auto;
+.navbar-brand i {
+    color: var(--primary-color);
 }
 
 /* Kitchen Display */
 .kitchen-order {
-    background-color: white;
+    background-color: var(--light-color);
     border-radius: var(--border-radius);
-    padding: 1rem;
+    padding: 1.5rem;
     margin-bottom: 1rem;
     box-shadow: var(--box-shadow);
+    border: 2px solid var(--border-color);
     transition: var(--transition);
 }
 
 .kitchen-order:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 8px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 6px 12px rgba(0, 0, 0, 0.15);
 }
 
 .kitchen-order-header {
@@ -277,6 +257,8 @@ body {
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid var(--border-color);
 }
 
 .kitchen-order-items {
@@ -289,31 +271,107 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.5rem 0;
-    border-bottom: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 0.8rem 0;
+    border-bottom: 1px solid var(--border-color);
 }
 
 /* Admin Panel */
 .admin-sidebar {
-    background-color: white;
+    background-color: var(--light-color);
     border-radius: var(--border-radius);
-    padding: 1rem;
+    padding: 1.5rem;
     box-shadow: var(--box-shadow);
+    border: 2px solid var(--border-color);
 }
 
 .admin-sidebar .nav-link {
     color: var(--dark-color);
-    padding: 0.5rem 1rem;
+    padding: 0.8em 1em;
     border-radius: var(--border-radius);
     transition: var(--transition);
+    margin-bottom: 0.5rem;
 }
 
 .admin-sidebar .nav-link:hover {
-    background-color: var(--light-color);
-    color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
+    transform: translateX(5px);
 }
 
 .admin-sidebar .nav-link.active {
     background-color: var(--primary-color);
     color: white;
+}
+
+/* Toast Notifications */
+.toast {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    background-color: var(--light-color);
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    padding: 1rem;
+    z-index: 1000;
+    border: 2px solid var(--border-color);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
+/* QR Code Display */
+.qr-code-container {
+    background-color: var(--light-color);
+    padding: 1.5rem;
+    border-radius: var(--border-radius);
+    box-shadow: var(--box-shadow);
+    text-align: center;
+    border: 2px solid var(--border-color);
+}
+
+.qr-code-container img {
+    max-width: 200px;
+    height: auto;
+    border-radius: var(--border-radius);
+}
+
+/* Loading Spinner */
+.spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--border-color);
+    border-top: 4px solid var(--primary-color);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}
+
+/* Responsive Design */
+@media (max-width: 768px) {
+    :root {
+        --border-radius: 12px;
+    }
+    
+    .container {
+        padding: 0 1rem;
+    }
+    
+    .card {
+        margin-bottom: 1rem;
+    }
+    
+    .menu-image {
+        height: 100px;
+    }
+    
+    .card-body {
+        padding: 1rem;
+    }
 } 
