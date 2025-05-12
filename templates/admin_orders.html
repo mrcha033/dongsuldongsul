@@ -1,6 +1,6 @@
 {% extends "base.html" %}
 
-{% block title %}관리자 - 주문 관리{% endblock %}
+{% block title %}주문 관리{% endblock %}
 
 {% block content %}
 <div class="row">
@@ -38,70 +38,202 @@
     <div class="col-md-9">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2>주문 관리</h2>
-            <a href="/" class="btn btn-outline-primary">
-                <i class="bi bi-house-door me-2"></i>홈으로
-            </a>
-        </div>
-
-        {% if orders %}
-        <div class="card">
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table">
-                        <thead>
-                            <tr>
-                                <th>테이블</th>
-                                <th>주문 시간</th>
-                                <th>메뉴</th>
-                                <th>금액</th>
-                                <th>상태</th>
-                                <th>작업</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            {% for order in orders %}
-                            <tr class="animate-fade-in">
-                                <td>테이블 {{ order.table_id }}</td>
-                                <td>{{ order.created_at.strftime('%H:%M') }}</td>
-                                <td>
-                                    <ul class="list-unstyled mb-0">
-                                        {% for menu_id, quantity in order.menu.items() %}
-                                        <li>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }} x {{ quantity }}</li>
-                                        {% endfor %}
-                                    </ul>
-                                </td>
-                                <td>{{ "{:,}".format(order.amount) }}원</td>
-                                <td>
-                                    {% if order.payment_status == 'pending' %}
-                                    <span class="badge bg-warning">송금 대기</span>
-                                    {% elif order.payment_status == 'confirmed' %}
-                                    <span class="badge bg-success">송금 완료</span>
-                                    {% endif %}
-                                </td>
-                                <td>
-                                    {% if order.payment_status == 'pending' %}
-                                    <form method="POST" action="/admin/orders/confirm/{{ order.id }}" class="d-inline">
-                                        <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="bi bi-check-lg me-1"></i>송금 확인
-                                        </button>
-                                    </form>
-                                    {% endif %}
-                                    <a href="/admin/table/{{ order.table_id }}" class="btn btn-outline-primary btn-sm ms-2">
-                                        <i class="bi bi-clock-history me-1"></i>이력
-                                    </a>
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
-                </div>
+            <div>
+                <a href="/kitchen" class="btn btn-outline-primary me-2">
+                    <i class="bi bi-basket me-2"></i>주방 화면
+                </a>
+                <a href="/" class="btn btn-outline-secondary">
+                    <i class="bi bi-house-door me-2"></i>홈으로
+                </a>
             </div>
         </div>
-        {% else %}
-        <div class="alert alert-info">
-            <i class="bi bi-info-circle me-2"></i>대기 중인 주문이 없습니다.
+
+        <div class="row">
+            <div class="col-md-8">
+                <!-- 결제 대기 중인 주문 -->
+                {% if pending_orders %}
+                <div class="card mb-4">
+                    <div class="card-header bg-warning text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-clock me-2"></i>결제 대기 중
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>테이블</th>
+                                        <th>주문 시간</th>
+                                        <th>메뉴</th>
+                                        <th>금액</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in pending_orders %}
+                                    <tr>
+                                        <td>{{ order.table_id }}번</td>
+                                        <td>{{ order.created_at.strftime('%H:%M') }}</td>
+                                        <td>
+                                            <ul class="list-unstyled mb-0">
+                                                {% for menu_id, quantity in order.menu.items() %}
+                                                <li>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }} x {{ quantity }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </td>
+                                        <td>{{ "{:,}".format(order.amount) }}원</td>
+                                        <td>
+                                            <form action="/admin/orders/confirm/{{ order.id }}" method="post" class="d-inline">
+                                                <button type="submit" class="btn btn-sm btn-success">
+                                                    <i class="bi bi-check-lg me-1"></i>결제 확인
+                                                </button>
+                                            </form>
+                                            <a href="/admin/table/{{ order.table_id }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-clock-history me-1"></i>주문 내역
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 조리 중인 주문 -->
+                {% if cooking_orders %}
+                <div class="card mb-4">
+                    <div class="card-header bg-primary text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-basket me-2"></i>조리 중
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>테이블</th>
+                                        <th>주문 시간</th>
+                                        <th>메뉴</th>
+                                        <th>금액</th>
+                                        <th>상태</th>
+                                        <th>작업</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in cooking_orders %}
+                                    <tr>
+                                        <td>{{ order.table_id }}번</td>
+                                        <td>{{ order.confirmed_at.strftime('%H:%M') }}</td>
+                                        <td>
+                                            <ul class="list-unstyled mb-0">
+                                                {% for menu_id, quantity in order.menu.items() %}
+                                                <li>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }} x {{ quantity }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </td>
+                                        <td>{{ "{:,}".format(order.amount) }}원</td>
+                                        <td>
+                                            {% if order.cooking_status == 'pending' %}
+                                            <span class="badge bg-warning">대기</span>
+                                            {% elif order.cooking_status == 'cooking' %}
+                                            <span class="badge bg-primary">조리 중</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <a href="/admin/table/{{ order.table_id }}" class="btn btn-sm btn-outline-primary">
+                                                <i class="bi bi-clock-history me-1"></i>주문 내역
+                                            </a>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                {% if not pending_orders and not cooking_orders %}
+                <div class="alert alert-info">
+                    <i class="bi bi-info-circle me-2"></i>현재 처리할 주문이 없습니다.
+                </div>
+                {% endif %}
+            </div>
+
+            <div class="col-md-4">
+                <!-- 주문 현황 -->
+                <div class="card mb-4">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-graph-up me-2"></i>주문 현황
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between mb-3">
+                            <span>결제 대기</span>
+                            <span class="badge bg-warning">{{ pending_orders|length }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span>조리 대기</span>
+                            <span class="badge bg-warning">{{ cooking_orders|selectattr('cooking_status', 'equalto', 'pending')|list|length }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between mb-3">
+                            <span>조리 중</span>
+                            <span class="badge bg-primary">{{ cooking_orders|selectattr('cooking_status', 'equalto', 'cooking')|list|length }}</span>
+                        </div>
+                        <div class="d-flex justify-content-between">
+                            <span>완료</span>
+                            <span class="badge bg-success">{{ completed_orders|length }}</span>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- 완료된 주문 -->
+                {% if completed_orders %}
+                <div class="card">
+                    <div class="card-header bg-success text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-check-circle me-2"></i>완료된 주문
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table">
+                                <thead>
+                                    <tr>
+                                        <th>테이블</th>
+                                        <th>완료 시간</th>
+                                        <th>메뉴</th>
+                                        <th>금액</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for order in completed_orders %}
+                                    <tr>
+                                        <td>{{ order.table_id }}번</td>
+                                        <td>{{ order.completed_at.strftime('%H:%M') }}</td>
+                                        <td>
+                                            <ul class="list-unstyled mb-0">
+                                                {% for menu_id, quantity in order.menu.items() %}
+                                                <li>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }} x {{ quantity }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </td>
+                                        <td>{{ "{:,}".format(order.amount) }}원</td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+            </div>
         </div>
-        {% endif %}
     </div>
 </div>
 {% endblock %} 

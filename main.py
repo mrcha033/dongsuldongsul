@@ -386,16 +386,30 @@ async def admin_orders(
     # 메뉴 데이터 가져오기
     menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
     
-    # 대기 중인 주문 가져오기
+    # 결제 대기 중인 주문
     pending_orders = db.query(Order).filter(Order.payment_status == "pending").all()
+    
+    # 조리 중인 주문
+    cooking_orders = db.query(Order).filter(
+        Order.payment_status == "confirmed",
+        Order.cooking_status.in_(["pending", "cooking"])
+    ).order_by(Order.confirmed_at.desc()).all()
+    
+    # 완료된 주문
+    completed_orders = db.query(Order).filter(
+        Order.payment_status == "confirmed",
+        Order.cooking_status == "completed"
+    ).order_by(Order.completed_at.desc()).limit(10).all()
     
     return templates.TemplateResponse(
         "admin_orders.html",
         {
             "request": request,
-            "orders": pending_orders,
+            "pending_orders": pending_orders,
+            "cooking_orders": cooking_orders,
+            "completed_orders": completed_orders,
             "username": username,
-            "menu_names": menu_names  # 메뉴 이름 정보 추가
+            "menu_names": menu_names
         }
     )
 
