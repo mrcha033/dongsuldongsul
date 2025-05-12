@@ -237,7 +237,7 @@ async def order_page(request: Request, table: int, db: Session = Depends(get_db)
         } for item in items]
     
     # 상차림비 추가
-    table_charge = db.query(MenuItem).filter(MenuItem.category == "table_charge").first()
+    table_charge = db.query(MenuItem).filter(MenuItem.category == "table").first()
     if table_charge:
         menu_items["table"] = [{
             "id": table_charge.id,
