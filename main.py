@@ -214,22 +214,35 @@ async def order_page(request: Request, table: int, db: Session = Depends(get_db)
     # 메뉴 데이터 가져오기
     menu_prices, menu_names_kr, menu_categories, menu_items = get_menu_data(db)
     
+    # 카테고리별 메뉴 그룹화
+    menu_by_category = {
+        "table": [],
+        "drinks": [],
+        "main_dishes": [],
+        "side_dishes": []
+    }
+    
     # 상차림비 메뉴 추가
     table_charge = MenuItem(
         id="table_charge",
-        name_en="Table Charge",
+        name_en="table",
         name_kr="상차림비(인당)",
         price=6000,
         category="table"
     )
-    menu_items["table"] = [table_charge]
+    menu_by_category["table"].append(table_charge)
+    
+    # 나머지 메뉴 아이템들을 카테고리별로 그룹화
+    for item in menu_items.values():
+        if item.category in menu_by_category:
+            menu_by_category[item.category].append(item)
     
     return templates.TemplateResponse(
         "order.html",
         {
             "request": request,
             "table_id": table,
-            "menu_items": menu_items
+            "menu_items": menu_by_category
         }
     )
 
