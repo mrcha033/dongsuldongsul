@@ -70,7 +70,7 @@
                                         {% endfor %}
                                     </ul>
                                 </td>
-                                <td>{{ order.amount|int|format(',d') }}원</td>
+                                <td>{{ "{:,}".format(order.amount) }}원</td>
                                 <td>
                                     {% if order.payment_status == 'pending' %}
                                     <span class="badge bg-warning">송금 대기</span>
