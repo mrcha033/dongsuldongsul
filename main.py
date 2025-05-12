@@ -211,25 +211,25 @@ async def generate_all_qr(request: Request):
 
 @app.get("/order", response_class=HTMLResponse)
 async def order_page(request: Request, table: int, db: Session = Depends(get_db)):
-    menu_items = db.query(MenuItem).filter(MenuItem.is_active == True).all()
+    # 메뉴 데이터 가져오기
+    menu_prices, menu_names_kr, menu_categories, menu_items = get_menu_data(db)
     
-    # 카테고리별 메뉴 그룹화
-    menu_by_category = {
-        "drinks": [],
-        "main_dishes": [],
-        "side_dishes": []
-    }
-    
-    for item in menu_items:
-        if item.category in menu_by_category:
-            menu_by_category[item.category].append(item)
+    # 상차림비 메뉴 추가
+    table_charge = MenuItem(
+        id="table_charge",
+        name_en="Table Charge",
+        name_kr="상차림비(인당)",
+        price=6000,
+        category="table"
+    )
+    menu_items["table"] = [table_charge]
     
     return templates.TemplateResponse(
         "order.html",
         {
             "request": request,
             "table_id": table,
-            "menu_items": menu_by_category
+            "menu_items": menu_items
         }
     )
 
