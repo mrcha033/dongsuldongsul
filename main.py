@@ -263,37 +263,80 @@ async def submit_order(
     try:
         print(f"Received order request - table_id: {table_id}, menu: {menu}")
         
-        # 메뉴 데이터 가져오기
-        menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
-        print(f"Retrieved menu data - prices: {menu_prices}, names: {menu_names}")
+        # 1. 메뉴 데이터 가져오기
+        try:
+            menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+            print(f"Retrieved menu data - prices: {menu_prices}, names: {menu_names}")
+        except Exception as e:
+            print(f"Error getting menu data: {str(e)}")
+            raise HTTPException(status_code=500, detail="Failed to retrieve menu data")
         
-        # 주문 메뉴 파싱
-        order_menu = json.loads(menu)
-        print(f"Parsed order menu: {order_menu}")
+        # 2. 주문 메뉴 파싱 및 유효성 검사
+        try:
+            order_menu = json.loads(menu)
+            if not isinstance(order_menu, dict):
+                raise ValueError("Menu data must be a dictionary")
+            print(f"Parsed order menu: {order_menu}")
+        except json.JSONDecodeError as e:
+            print(f"Invalid JSON format: {str(e)}")
+            raise HTTPException(status_code=400, detail="Invalid menu data format")
+        except ValueError as e:
+            print(f"Invalid menu data structure: {str(e)}")
+            raise HTTPException(status_code=400, detail=str(e))
         
-        # 주문 금액 계산
+        # 3. 주문 금액 계산 및 메뉴 유효성 검사
         total_amount = 0
+        valid_order_items = {}
+        
         for item_id, quantity in order_menu.items():
-            item = menu_items.get(item_id)
-            if item:
-                total_amount += item.price * quantity
-            else:
-                print(f"Warning: Menu item not found for ID {item_id}")
+            try:
+                quantity = int(quantity)
+                if quantity <= 0:
+                    print(f"Warning: Invalid quantity {quantity} for item {item_id}")
+                    continue
+                    
+                item = menu_items.get(item_id)
+                if not item:
+                    print(f"Warning: Menu item not found for ID {item_id}")
+                    continue
+                    
+                if not item.is_active:
+                    print(f"Warning: Menu item {item_id} is not active")
+                    continue
+                
+                item_total = item.price * quantity
+                total_amount += item_total
+                valid_order_items[item_id] = quantity
+                print(f"Added item {item_id}: {quantity} x {item.price} = {item_total}")
+                
+            except (ValueError, TypeError) as e:
+                print(f"Error processing item {item_id}: {str(e)}")
+                continue
+        
+        if not valid_order_items:
+            raise HTTPException(status_code=400, detail="No valid items in order")
+        
+        print(f"Final order items: {valid_order_items}")
         print(f"Calculated total amount: {total_amount}")
         
-        # 주문 생성
-        order = Order(
-            table_id=table_id,
-            menu=order_menu,
-            amount=total_amount,
-            payment_status="pending"
-        )
-        db.add(order)
-        db.commit()
-        db.refresh(order)
-        print(f"Created order with ID: {order.id}")
+        # 4. 주문 생성
+        try:
+            order = Order(
+                table_id=table_id,
+                menu=valid_order_items,
+                amount=total_amount,
+                payment_status="pending"
+            )
+            db.add(order)
+            db.commit()
+            db.refresh(order)
+            print(f"Created order with ID: {order.id}")
+        except Exception as e:
+            print(f"Database error: {str(e)}")
+            db.rollback()
+            raise HTTPException(status_code=500, detail="Failed to create order")
         
-        # WebSocket을 통해 새 주문 알림 전송
+        # 5. WebSocket 알림 (실패해도 주문은 성공)
         try:
             await manager.broadcast(json.dumps({
                 "type": "new_order",
@@ -305,7 +348,7 @@ async def submit_order(
         except Exception as ws_error:
             print(f"WebSocket error (non-critical): {str(ws_error)}")
         
-        # 주문 성공 페이지로 리다이렉트
+        # 6. 주문 성공 페이지 반환
         return templates.TemplateResponse(
             "order_success.html",
             {
@@ -314,17 +357,16 @@ async def submit_order(
                 "menu_names": menu_names
             }
         )
-    except json.JSONDecodeError as e:
-        print(f"JSON decode error: {str(e)}")
-        db.rollback()
-        raise HTTPException(status_code=400, detail=f"Invalid menu data format: {str(e)}")
+        
+    except HTTPException:
+        raise
     except Exception as e:
         print(f"Unexpected error in submit_order: {str(e)}")
         print(f"Error type: {type(e)}")
         import traceback
         print(f"Traceback: {traceback.format_exc()}")
         db.rollback()
-        raise HTTPException(status_code=500, detail=str(e))
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 @app.get("/admin/orders", response_class=HTMLResponse)
 async def admin_orders(
