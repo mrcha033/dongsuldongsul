@@ -260,36 +260,42 @@ async def submit_order(
     menu: str = Form(...),
     db: Session = Depends(get_db)
 ):
-    menu_dict = json.loads(menu)
-    menu_prices, _, _ = get_menu_data(db)
-    amount = sum(menu_prices[k] * int(v) for k, v in menu_dict.items() if int(v) > 0)
-    
-    order = Order(
-        table_id=table_id,
-        menu=menu_dict,
-        amount=amount,
-        payment_status="pending"
-    )
-    
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-    
-    # WebSocket을 통해 새 주문 알림 전송
-    await manager.broadcast(json.dumps({
-        "type": "new_order",
-        "order_id": order.id,
-        "table_id": table_id,
-        "amount": amount
-    }))
-    
-    return templates.TemplateResponse(
-        "order_success.html",
-        {
-            "request": request,
-            "order": order
-        }
-    )
+    try:
+        # 메뉴 데이터 가져오기
+        menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+        
+        # 주문 메뉴 파싱
+        order_menu = json.loads(menu)
+        
+        # 주문 금액 계산
+        total_amount = 0
+        for item_id, quantity in order_menu.items():
+            item = menu_items.get(item_id)
+            if item:
+                total_amount += item.price * quantity
+        
+        # 주문 생성
+        order = Order(
+            table_id=table_id,
+            menu=order_menu,
+            amount=total_amount,
+            payment_status="pending"
+        )
+        db.add(order)
+        db.commit()
+        
+        # 주문 성공 페이지로 리다이렉트
+        return templates.TemplateResponse(
+            "order_success.html",
+            {
+                "request": request,
+                "order": order,
+                "menu_names": menu_names
+            }
+        )
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/admin/orders", response_class=HTMLResponse)
 async def admin_orders(
