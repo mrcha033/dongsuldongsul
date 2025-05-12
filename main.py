@@ -383,13 +383,19 @@ async def admin_orders(
     db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
+    # 메뉴 데이터 가져오기
+    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+    
+    # 대기 중인 주문 가져오기
     pending_orders = db.query(Order).filter(Order.payment_status == "pending").all()
+    
     return templates.TemplateResponse(
         "admin_orders.html",
         {
             "request": request,
             "orders": pending_orders,
-            "username": username
+            "username": username,
+            "menu_names": menu_names  # 메뉴 이름 정보 추가
         }
     )
 
