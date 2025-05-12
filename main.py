@@ -261,11 +261,15 @@ async def submit_order(
     db: Session = Depends(get_db)
 ):
     try:
+        print(f"Received order request - table_id: {table_id}, menu: {menu}")
+        
         # 메뉴 데이터 가져오기
         menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+        print(f"Retrieved menu data - prices: {menu_prices}, names: {menu_names}")
         
         # 주문 메뉴 파싱
         order_menu = json.loads(menu)
+        print(f"Parsed order menu: {order_menu}")
         
         # 주문 금액 계산
         total_amount = 0
@@ -273,6 +277,9 @@ async def submit_order(
             item = menu_items.get(item_id)
             if item:
                 total_amount += item.price * quantity
+            else:
+                print(f"Warning: Menu item not found for ID {item_id}")
+        print(f"Calculated total amount: {total_amount}")
         
         # 주문 생성
         order = Order(
@@ -284,14 +291,19 @@ async def submit_order(
         db.add(order)
         db.commit()
         db.refresh(order)
+        print(f"Created order with ID: {order.id}")
         
         # WebSocket을 통해 새 주문 알림 전송
-        await manager.broadcast(json.dumps({
-            "type": "new_order",
-            "order_id": order.id,
-            "table_id": table_id,
-            "amount": total_amount
-        }))
+        try:
+            await manager.broadcast(json.dumps({
+                "type": "new_order",
+                "order_id": order.id,
+                "table_id": table_id,
+                "amount": total_amount
+            }))
+            print("WebSocket notification sent")
+        except Exception as ws_error:
+            print(f"WebSocket error (non-critical): {str(ws_error)}")
         
         # 주문 성공 페이지로 리다이렉트
         return templates.TemplateResponse(
@@ -303,9 +315,14 @@ async def submit_order(
             }
         )
     except json.JSONDecodeError as e:
+        print(f"JSON decode error: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=400, detail=f"Invalid menu data format: {str(e)}")
     except Exception as e:
+        print(f"Unexpected error in submit_order: {str(e)}")
+        print(f"Error type: {type(e)}")
+        import traceback
+        print(f"Traceback: {traceback.format_exc()}")
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
 
