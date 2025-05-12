@@ -421,6 +421,9 @@ async def kitchen_display(
     db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
+    # 메뉴 데이터 가져오기
+    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+    
     cooking_orders = db.query(Order).filter(
         Order.payment_status == "confirmed",
         Order.cooking_status.in_(["pending", "cooking"])
@@ -437,7 +440,8 @@ async def kitchen_display(
             "request": request,
             "cooking_orders": cooking_orders,
             "completed_orders": completed_orders,
-            "username": username
+            "username": username,
+            "menu_names": menu_names  # 메뉴 이름 정보 추가
         }
     )
 
