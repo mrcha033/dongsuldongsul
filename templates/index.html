@@ -9,7 +9,7 @@
         <p class="lead mb-5">테이블 번호를 선택하여 주문을 시작하세요.</p>
         
         <div class="row row-cols-2 row-cols-md-4 g-4">
-            {% for table_id in range(1, 11) %}
+            {% for table_id in range(1, 51) %}
             <div class="col">
                 <a href="/order?table={{ table_id }}" class="text-decoration-none">
                     <div class="card h-100 table-card animate-fade-in" style="animation-delay: {{ table_id * 0.1 }}s">

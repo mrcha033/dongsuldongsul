@@ -5,7 +5,7 @@ from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
 from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
+from sqlalchemy.orm import sessionmaker, Session
 from datetime import datetime
 import json
 import os
@@ -14,7 +14,7 @@ from io import BytesIO
 import base64
 import secrets
 import shutil
-from typing import Optional, List
+from typing import Optional, List, Dict, Tuple, Any
 from fastapi import WebSocket
 from fastapi import WebSocketDisconnect
 
@@ -96,10 +96,11 @@ def get_db():
         db.close()
 
 # 초기 메뉴 데이터 생성 함수
-def init_menu_data(db: SessionLocal):
+def init_menu_data(db: Session):
     """초기 메뉴 데이터 생성"""
     if db.query(MenuItem).first() is None:
         initial_menu = [
+            MenuItem(name_kr="상차림비(인당)", name_en="table", price=6000, category="table"),
             MenuItem(name_kr="맥주", name_en="beer", price=5000, category="drinks"),
             MenuItem(name_kr="소주", name_en="soju", price=4000, category="drinks"),
             MenuItem(name_kr="막걸리", name_en="makgeolli", price=6000, category="drinks"),
@@ -118,7 +119,7 @@ def init_menu_data(db: SessionLocal):
 init_menu_data(next(get_db()))
 
 # 메뉴 관련 함수들
-def get_menu_data(db: SessionLocal):
+def get_menu_data(db: Session) -> Tuple[Dict[str, int], Dict[str, str], Dict[str, Dict[str, Any]], Dict[str, MenuItem]]:
     """현재 활성화된 메뉴 데이터를 반환"""
     menu_items = db.query(MenuItem).filter(MenuItem.is_active == True).all()
     
@@ -127,6 +128,10 @@ def get_menu_data(db: SessionLocal):
     
     # 카테고리별 메뉴 그룹화
     menu_categories = {
+        "table": {
+            "name": "상차림비(인당)",
+            "items": [item.name_en for item in menu_items if item.category == "table"]
+        },
         "drinks": {
             "name": "음료",
             "items": [item.name_en for item in menu_items if item.category == "drinks"]
@@ -183,27 +188,29 @@ async def generate_all_qr(request: Request):
     """모든 테이블의 QR 코드를 생성하고 ZIP 파일로 다운로드합니다."""
     import zipfile
     from io import BytesIO
+    import tempfile
+    import os
     
-    # 임시 ZIP 파일 생성
-    zip_buffer = BytesIO()
-    with zipfile.ZipFile(zip_buffer, 'w', zipfile.ZIP_DEFLATED) as zip_file:
-        base_url = request.base_url
-        for table_id in range(1, 11):
-            order_url = f"{base_url}order?table={table_id}"
-            qr_path = generate_qr_code(order_url, table_id)
-            zip_file.write(qr_path, f"table_{table_id}_qr.png")
-    
-    # ZIP 파일 포인터를 처음으로 되돌림
-    zip_buffer.seek(0)
-    
-    return FileResponse(
-        zip_buffer,
-        media_type="application/zip",
-        filename="table_qr_codes.zip"
-    )
+    # 임시 디렉토리 생성
+    with tempfile.TemporaryDirectory() as temp_dir:
+        # 임시 ZIP 파일 생성
+        zip_path = os.path.join(temp_dir, "table_qr_codes.zip")
+        with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
+            base_url = request.base_url
+            for table_id in range(1, 51):
+                order_url = f"{base_url}order?table={table_id}"
+                qr_path = generate_qr_code(order_url, table_id)
+                # ZIP 파일에 추가할 때 파일 이름만 사용
+                zip_file.write(qr_path, f"table_{table_id}_qr.png")
+        
+        return FileResponse(
+            zip_path,
+            media_type="application/zip",
+            filename="table_qr_codes.zip"
+        )
 
 @app.get("/order", response_class=HTMLResponse)
-async def order_page(request: Request, table: int, db: SessionLocal = Depends(get_db)):
+async def order_page(request: Request, table: int, db: Session = Depends(get_db)):
     menu_items = db.query(MenuItem).filter(MenuItem.is_active == True).all()
     
     # 카테고리별 메뉴 그룹화
@@ -231,7 +238,7 @@ async def submit_order(
     request: Request,
     table_id: int = Form(...),
     menu: str = Form(...),
-    db: SessionLocal = Depends(get_db)
+    db: Session = Depends(get_db)
 ):
     menu_dict = json.loads(menu)
     menu_prices, _, _ = get_menu_data(db)
@@ -267,7 +274,7 @@ async def submit_order(
 @app.get("/admin/orders", response_class=HTMLResponse)
 async def admin_orders(
     request: Request,
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     pending_orders = db.query(Order).filter(Order.payment_status == "pending").all()
@@ -283,7 +290,7 @@ async def admin_orders(
 @app.post("/admin/orders/confirm/{order_id}")
 async def confirm_order(
     order_id: int,
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     order = db.query(Order).filter(Order.id == order_id).first()
@@ -299,7 +306,7 @@ async def confirm_order(
 @app.get("/kitchen", response_class=HTMLResponse)
 async def kitchen_display(
     request: Request,
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     cooking_orders = db.query(Order).filter(
@@ -326,7 +333,7 @@ async def kitchen_display(
 async def update_cooking_status(
     order_id: int,
     status: str = Form(...),
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     order = db.query(Order).filter(Order.id == order_id).first()
@@ -353,7 +360,7 @@ async def table_order_history(
     table_id: int,
     status: str = None,
     limit: int = 10,
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     """테이블별 주문 내역 조회"""
@@ -395,7 +402,7 @@ async def table_order_history(
 @app.get("/admin/menu", response_class=HTMLResponse)
 async def menu_management(
     request: Request,
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     """메뉴 관리 페이지"""
@@ -418,7 +425,7 @@ async def add_menu_item(
     category: str = Form(...),
     description: str = Form(None),
     image: Optional[UploadFile] = File(None),
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     """새 메뉴 추가"""
@@ -464,7 +471,7 @@ async def update_menu_item(
     description: str = Form(None),
     is_active: bool = Form(False),
     image: Optional[UploadFile] = File(None),
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     """메뉴 수정"""
@@ -510,7 +517,7 @@ async def update_menu_item(
 @app.post("/admin/menu/delete/{item_id}")
 async def delete_menu_item(
     item_id: int,
-    db: SessionLocal = Depends(get_db),
+    db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
     """메뉴 삭제 (비활성화)"""
