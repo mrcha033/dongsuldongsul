@@ -147,7 +147,8 @@ def get_menu_data(db: Session) -> Tuple[Dict[str, int], Dict[str, str], Dict[str
         }
     }
     
-    return menu_prices, menu_names, menu_categories, {item.name_en: item for item in menu_items}
+    # id를 키로 사용하는 메뉴 아이템 딕셔너리 생성
+    return menu_prices, menu_names, menu_categories, {str(item.id): item for item in menu_items}
 
 def generate_qr_code(url: str, table_id: int) -> str:
     """QR 코드를 생성하고 저장된 경로를 반환합니다."""
@@ -295,7 +296,8 @@ async def submit_order(
                     print(f"Warning: Invalid quantity {quantity} for item {item_id}")
                     continue
                     
-                item = menu_items.get(item_id)
+                # item_id를 문자열로 변환하여 메뉴 아이템 조회
+                item = menu_items.get(str(item_id))
                 if not item:
                     print(f"Warning: Menu item not found for ID {item_id}")
                     continue
