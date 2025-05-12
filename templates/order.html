@@ -14,7 +14,59 @@
             </a>
         </div>
 
+        <!-- 상차림비 섹션 -->
+        <div class="card mb-4 animate-fade-in">
+            <div class="card-header">
+                <h3 class="mb-0">
+                    <i class="bi bi-people me-2"></i>상차림비
+                </h3>
+            </div>
+            <div class="card-body">
+                <div class="row">
+                    <div class="col-12">
+                        <div class="menu-card">
+                            <div class="row g-0">
+                                <div class="col-4">
+                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light">
+                                        <i class="bi bi-people text-muted fs-1"></i>
+                                    </div>
+                                </div>
+                                <div class="col-8">
+                                    <div class="p-3">
+                                        <h5 class="mb-1">상차림비(인당)</h5>
+                                        <small class="text-muted d-block mb-2">table charge per person</small>
+                                        <div class="d-flex justify-content-between align-items-center">
+                                            <span class="price">{{ "{:,}".format(menu_items.table[0].price|int) }}원</span>
+                                            <div class="quantity-controls">
+                                                <button type="button" 
+                                                        class="quantity-btn" 
+                                                        onclick="updateQuantity('{{ menu_items.table[0].id }}', -1)">
+                                                    <i class="bi bi-dash"></i>
+                                                </button>
+                                                <input type="number" 
+                                                       id="quantity-{{ menu_items.table[0].id }}" 
+                                                       class="quantity-input" 
+                                                       value="0" 
+                                                       min="0" 
+                                                       readonly>
+                                                <button type="button" 
+                                                        class="quantity-btn" 
+                                                        onclick="updateQuantity('{{ menu_items.table[0].id }}', 1)">
+                                                    <i class="bi bi-plus"></i>
+                                                </button>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
         {% for category_name, items in menu_items.items() %}
+        {% if category_name != 'table' %}
         <div class="card mb-4 animate-fade-in">
             <div class="card-header">
                 <h3 class="mb-0">
@@ -81,6 +133,7 @@
                 </div>
             </div>
         </div>
+        {% endif %}
         {% endfor %}
     </div>
 
@@ -171,14 +224,14 @@ async function submitOrder() {
     submitButton.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span>주문 처리 중...';
     
     try {
-        const response = await fetch('/order', {
+        const response = await fetch('/submit_order', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/json',
+                'Content-Type': 'application/x-www-form-urlencoded',
             },
-            body: JSON.stringify({
-                table_id: {{ table_id }},
-                menu: orderItems
+            body: new URLSearchParams({
+                'table_id': {{ table_id }},
+                'menu': JSON.stringify(orderItems)
             })
         });
         
