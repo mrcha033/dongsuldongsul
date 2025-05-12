@@ -108,7 +108,7 @@
                                             <div class="quantity-controls">
                                                 <button type="button" 
                                                         class="quantity-btn" 
-                                                        onclick="updateQuantity({{ item.id }}, -1)">
+                                                        onclick="updateQuantity('{{ item.id }}', -1)">
                                                     <i class="bi bi-dash"></i>
                                                 </button>
                                                 <input type="number" 
@@ -119,7 +119,7 @@
                                                        readonly>
                                                 <button type="button" 
                                                         class="quantity-btn" 
-                                                        onclick="updateQuantity({{ item.id }}, 1)">
+                                                        onclick="updateQuantity('{{ item.id }}', 1)">
                                                     <i class="bi bi-plus"></i>
                                                 </button>
                                             </div>
@@ -167,6 +167,10 @@
 
 <script>
 let orderItems = {};
+
+// 메뉴 데이터를 data 속성에서 가져오기
+const menuItemsData = document.getElementById('menu-items-data').textContent;
+const menuItems = JSON.parse(menuItemsData);
 
 function updateQuantity(itemId, change) {
     const input = document.getElementById(`quantity-${itemId}`);
@@ -229,10 +233,10 @@ async function submitOrder() {
         const response = await fetch('/submit_order', {
             method: 'POST',
             headers: {
-                'Content-Type': 'application/x-www-form-urlencoded',
+                'Content-Type': 'application/x-www-form-urlencoded'
             },
             body: new URLSearchParams({
-                'table_id': {{ table_id }},
+                'table_id': '{{ table_id }}',
                 'menu': JSON.stringify(orderItems)
             })
         });
@@ -248,18 +252,20 @@ async function submitOrder() {
         submitButton.innerHTML = '<i class="bi bi-check-circle me-2"></i>주문하기';
     }
 }
+</script>
 
-// 메뉴 데이터를 JavaScript 변수로 저장
-const menuItems = {
+<!-- 메뉴 데이터를 숨겨진 요소에 저장 -->
+<script type="application/json" id="menu-items-data">
+{
     {% for category_name, items in menu_items.items() %}
         {% for item in items %}
-            '{{ item.id }}': {
-                name_kr: '{{ item.name_kr }}',
-                name_en: '{{ item.name_en }}',
-                price: {{ item.price }}
+            "{{ item.id }}": {
+                "name_kr": "{{ item.name_kr }}",
+                "name_en": "{{ item.name_en }}",
+                "price": {{ item.price }}
             }{% if not loop.last %},{% endif %}
         {% endfor %}
     {% endfor %}
-};
+}
 </script>
 {% endblock %} 

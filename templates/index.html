@@ -12,7 +12,7 @@
             {% for table_id in range(1, 51) %}
             <div class="col">
                 <a href="/order?table={{ table_id }}" class="text-decoration-none">
-                    <div class="card h-100 table-card animate-fade-in" style="animation-delay: {{ table_id * 0.1 }}s">
+                    <div class="card h-100 table-card animate-fade-in delay-{{ table_id }}">
                         <div class="card-body d-flex flex-column justify-content-center align-items-center">
                             <i class="bi bi-table fs-1 text-primary mb-2"></i>
                             <h5 class="card-title mb-0">테이블 {{ table_id }}</h5>
@@ -30,4 +30,14 @@
         </div>
     </div>
 </div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const cards = document.querySelectorAll('.table-card');
+    cards.forEach(card => {
+        const tableId = parseInt(card.dataset.tableId);
+        card.style.animationDelay = `${tableId * 0.1}s`;
+    });
+});
+</script>
 {% endblock %} 

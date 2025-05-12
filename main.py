@@ -17,6 +17,7 @@ import shutil
 from typing import Optional, List, Dict, Tuple, Any
 from fastapi import WebSocket
 from fastapi import WebSocketDisconnect
+from fastapi import BackgroundTasks
 
 # FastAPI 앱 생성
 app = FastAPI()
@@ -187,12 +188,12 @@ async def generate_table_qr(table_id: int, request: Request):
 async def generate_all_qr(request: Request):
     """모든 테이블의 QR 코드를 생성하고 ZIP 파일로 다운로드합니다."""
     import zipfile
-    from io import BytesIO
     import tempfile
     import os
     
     # 임시 디렉토리 생성
-    with tempfile.TemporaryDirectory() as temp_dir:
+    temp_dir = tempfile.mkdtemp()
+    try:
         # 임시 ZIP 파일 생성
         zip_path = os.path.join(temp_dir, "table_qr_codes.zip")
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zip_file:
@@ -203,11 +204,22 @@ async def generate_all_qr(request: Request):
                 # ZIP 파일에 추가할 때 파일 이름만 사용
                 zip_file.write(qr_path, f"table_{table_id}_qr.png")
         
-        return FileResponse(
+        # FileResponse 생성 시 임시 디렉토리 경로를 background_tasks에 추가
+        response = FileResponse(
             zip_path,
             media_type="application/zip",
-            filename="table_qr_codes.zip"
+            filename="table_qr_codes.zip",
+            background=BackgroundTasks()
         )
+        
+        # 응답이 완료된 후 임시 디렉토리 삭제
+        response.background.add_task(shutil.rmtree, temp_dir)
+        
+        return response
+    except Exception as e:
+        # 오류 발생 시 임시 디렉토리 삭제
+        shutil.rmtree(temp_dir)
+        raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/order", response_class=HTMLResponse)
 async def order_page(request: Request, table: int, db: Session = Depends(get_db)):
