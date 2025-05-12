@@ -283,6 +283,15 @@ async def submit_order(
         )
         db.add(order)
         db.commit()
+        db.refresh(order)
+        
+        # WebSocket을 통해 새 주문 알림 전송
+        await manager.broadcast(json.dumps({
+            "type": "new_order",
+            "order_id": order.id,
+            "table_id": table_id,
+            "amount": total_amount
+        }))
         
         # 주문 성공 페이지로 리다이렉트
         return templates.TemplateResponse(
@@ -293,6 +302,9 @@ async def submit_order(
                 "menu_names": menu_names
             }
         )
+    except json.JSONDecodeError as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Invalid menu data format: {str(e)}")
     except Exception as e:
         db.rollback()
         raise HTTPException(status_code=500, detail=str(e))
