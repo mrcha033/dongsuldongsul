@@ -21,6 +21,16 @@ function updateQuantity(itemId, change) {
     updateOrderSummary();
 }
 
+function findMenuItem(itemId) {
+    // 모든 카테고리를 순회하면서 아이템 찾기
+    for (const category in menuItems) {
+        const items = menuItems[category];
+        const item = items.find(item => item.id === parseInt(itemId));
+        if (item) return item;
+    }
+    return null;
+}
+
 function updateOrderSummary() {
     const summary = document.getElementById('order-summary');
     const totalAmount = document.getElementById('total-amount');
@@ -30,7 +40,7 @@ function updateOrderSummary() {
     summary.innerHTML = '';
     
     for (const [itemId, quantity] of Object.entries(orderItems)) {
-        const item = menuItems[itemId];
+        const item = findMenuItem(itemId);
         if (!item) continue;
         
         const itemTotal = item.price * quantity;
