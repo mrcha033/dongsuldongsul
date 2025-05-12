@@ -165,12 +165,15 @@
     </div>
 </div>
 
+<!-- 메뉴 데이터를 data 속성에 저장 -->
+<div id="menu-data" style="display: none;" data-menu='{{ menu_items|tojson }}'></div>
+
 <script>
 let orderItems = {};
 
-// 메뉴 데이터를 data 속성에서 가져오기
-const menuItemsData = document.getElementById('menu-items-data').textContent;
-const menuItems = JSON.parse(menuItemsData);
+// 메뉴 데이터 초기화
+const menuDataElement = document.getElementById('menu-data');
+const menuItems = JSON.parse(menuDataElement.dataset.menu);
 
 function updateQuantity(itemId, change) {
     const input = document.getElementById(`quantity-${itemId}`);
@@ -242,7 +245,10 @@ async function submitOrder() {
         });
         
         if (response.ok) {
-            window.location.href = '/order/success';
+            const result = await response.text();
+            document.open();
+            document.write(result);
+            document.close();
         } else {
             throw new Error('주문 처리 중 오류가 발생했습니다.');
         }
@@ -251,21 +257,6 @@ async function submitOrder() {
         submitButton.disabled = false;
         submitButton.innerHTML = '<i class="bi bi-check-circle me-2"></i>주문하기';
     }
-}
-</script>
-
-<!-- 메뉴 데이터를 숨겨진 요소에 저장 -->
-<script type="application/json" id="menu-items-data">
-{
-    {% for category_name, items in menu_items.items() %}
-        {% for item in items %}
-            "{{ item.id }}": {
-                "name_kr": "{{ item.name_kr }}",
-                "name_en": "{{ item.name_en }}",
-                "price": {{ item.price }}
-            }{% if not loop.last %},{% endif %}
-        {% endfor %}
-    {% endfor %}
 }
 </script>
 {% endblock %} 
