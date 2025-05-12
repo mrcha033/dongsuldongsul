@@ -28,12 +28,36 @@
                         </ul>
                     </div>
 
-                    <div class="alert alert-info">
-                        <p class="mb-0">주문하신 메뉴는 곧 준비되어 나갈 예정입니다.</p>
-                        <p class="mb-0">결제는 카운터에서 진행해 주세요.</p>
+                    <div class="payment-info mb-4">
+                        <h4 class="mb-3">결제 안내</h4>
+                        
+                        <!-- QR 코드 섹션 -->
+                        <div class="qr-section mb-4">
+                            <h5>토스 QR코드로 결제</h5>
+                            <div class="qr-code-container mb-2">
+                                <img src="/static/qr/toss_qr.png" alt="토스 QR코드" class="img-fluid" style="max-width: 200px;">
+                            </div>
+                            <p class="text-muted small">토스 앱으로 테이블에 있는 QR코드를 스캔하여 결제해주세요</p>
+                            <p class="mb-0 text-danger">💬 <strong>메모에 꼭 "테이블{{ order.table_id }}" 입력</strong></p>
+                        </div>
+
+                        <!-- 수기 송금 안내 섹션 -->
+                        <div class="manual-transfer-section">
+                            <h5>계좌이체로 결제</h5>
+                            <div class="transfer-info p-3 bg-light rounded">
+                                <p class="mb-2">계좌번호: <strong>국민은행 123456-78-901234</strong></p>
+                                <p class="mb-2">예금주: 동술동술</p>
+                                <p class="mb-0 text-danger">💬 <strong>메모에 꼭 "테이블{{ order.table_id }}" 입력</strong></p>
+                            </div>
+                        </div>
                     </div>
 
-                    <a href="/" class="btn btn-primary">홈으로 돌아가기</a>
+                    <div class="alert alert-warning">
+                        <h5 class="alert-heading">⚠️ 주의사항</h5>
+                        <p class="mb-0">결제 확인이 완료되어야 주문하신 메뉴가 준비됩니다.</p>
+                    </div>
+
+                    <a href="/order" class="btn btn-primary">주문으로 돌아가기</a>
                 </div>
             </div>
         </div>
