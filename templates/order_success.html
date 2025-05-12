@@ -16,6 +16,36 @@
                         테이블 {{ table_id }}의 주문이 성공적으로 접수되었습니다.<br>
                         잠시만 기다려주세요. 곧 음식이 준비될 예정입니다.
                     </p>
+                    
+                    <!-- Payment Information Section -->
+                    <div class="payment-info mt-4 mb-4 p-4 bg-light rounded">
+                        <h5 class="mb-3">송금 안내</h5>
+                        <p class="mb-2">송금 금액: <strong>{{ order.amount|int|format(',d') }}원</strong></p>
+                        
+                        <!-- Android Toss Payment Button -->
+                        <div id="android-payment" class="mb-3" style="display: none;">
+                            <button id="toss-button" 
+                                    class="btn btn-success w-100 mb-3"
+                                    data-amount="{{ order.amount|int }}"
+                                    data-table-id="{{ table_id }}">
+                                <i class="bi bi-wallet2 me-2"></i>토스로 송금 요청하기
+                            </button>
+                            <p class="text-muted small mb-3">또는 아래 계좌로 직접 송금해주세요</p>
+                        </div>
+
+                        <!-- Common Payment Info for all devices -->
+                        <div class="payment-details">
+                            <p class="mb-2">계좌번호: 
+                                <strong id="account-number">국민은행 123456-78-901234</strong>
+                                <button class="btn btn-sm btn-outline-primary ms-2" onclick="copyAccount()">
+                                    <i class="bi bi-clipboard me-1"></i>복사
+                                </button>
+                            </p>
+                            <p class="mb-2">예금주: 동술동술</p>
+                            <p class="mb-3">💬 <strong>메모에 꼭 "테이블{{ table_id }}" 입력</strong></p>
+                        </div>
+                    </div>
+
                     <div class="d-grid gap-2">
                         <a href="/" class="btn btn-primary">
                             <i class="bi bi-house-door me-2"></i>홈으로 돌아가기
@@ -26,4 +56,6 @@
         </div>
     </div>
 </div>
+
+<script src="{{ url_for('static', filename='js/payment.js') }}"></script>
 {% endblock %} 

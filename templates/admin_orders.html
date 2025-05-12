@@ -72,14 +72,20 @@
                                 </td>
                                 <td>{{ order.amount|int|format(',d') }}원</td>
                                 <td>
-                                    <span class="badge badge-pending">대기</span>
+                                    {% if order.payment_status == 'pending' %}
+                                    <span class="badge bg-warning">송금 대기</span>
+                                    {% elif order.payment_status == 'confirmed' %}
+                                    <span class="badge bg-success">송금 완료</span>
+                                    {% endif %}
                                 </td>
                                 <td>
+                                    {% if order.payment_status == 'pending' %}
                                     <form method="POST" action="/admin/orders/confirm/{{ order.id }}" class="d-inline">
                                         <button type="submit" class="btn btn-success btn-sm">
-                                            <i class="bi bi-check-lg me-1"></i>승인
+                                            <i class="bi bi-check-lg me-1"></i>송금 확인
                                         </button>
                                     </form>
+                                    {% endif %}
                                     <a href="/admin/table/{{ order.table_id }}" class="btn btn-outline-primary btn-sm ms-2">
                                         <i class="bi bi-clock-history me-1"></i>이력
                                     </a>

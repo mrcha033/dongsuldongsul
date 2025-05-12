@@ -583,6 +583,35 @@ async def websocket_endpoint(websocket: WebSocket):
     except WebSocketDisconnect:
         manager.disconnect(websocket)
 
+@app.post("/update_payment_status")
+async def update_payment_status(
+    request: Request,
+    db: Session = Depends(get_db)
+):
+    try:
+        data = await request.json()
+        table_id = data.get('table_id')
+        status = data.get('status')
+        
+        if not table_id or not status:
+            return {"success": False, "error": "Missing required fields"}
+            
+        # Get the latest order for this table
+        order = db.query(Order).filter(
+            Order.table_id == table_id
+        ).order_by(Order.created_at.desc()).first()
+        
+        if not order:
+            return {"success": False, "error": "Order not found"}
+            
+        order.payment_status = status
+        db.commit()
+        
+        return {"success": True}
+    except Exception as e:
+        db.rollback()
+        return {"success": False, "error": str(e)}
+
 if __name__ == "__main__":
     import uvicorn
     uvicorn.run(app, host="0.0.0.0", port=8000) 
