@@ -224,7 +224,7 @@ async def order_page(request: Request, table: int, db: Session = Depends(get_db)
     
     # 상차림비 메뉴 추가
     table_charge = MenuItem(
-        id="table_charge",
+        id=1,  # 고정된 ID 사용
         name_en="table",
         name_kr="상차림비(인당)",
         price=6000,
