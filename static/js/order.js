@@ -18,6 +18,7 @@ function updateQuantity(itemId, change) {
         delete orderItems[itemId];
     }
     
+    console.log('Updated orderItems:', orderItems);
     updateOrderSummary();
 }
 
@@ -25,9 +26,13 @@ function findMenuItem(itemId) {
     // 모든 카테고리를 순회하면서 아이템 찾기
     for (const category in menuItems) {
         const items = menuItems[category];
-        const item = items.find(item => item.id === parseInt(itemId));
-        if (item) return item;
+        const item = items.find(item => item.id == itemId);  // == 사용하여 타입 비교
+        if (item) {
+            console.log('Found menu item:', { itemId, item });
+            return item;
+        }
     }
+    console.warn('Menu item not found:', itemId);
     return null;
 }
 
@@ -41,10 +46,14 @@ function updateOrderSummary() {
     
     for (const [itemId, quantity] of Object.entries(orderItems)) {
         const item = findMenuItem(itemId);
-        if (!item) continue;
+        if (!item) {
+            console.error(`Menu item not found for ID: ${itemId}`);
+            continue;
+        }
         
         const itemTotal = item.price * quantity;
         total += itemTotal;
+        console.log('Item total:', { itemId, quantity, price: item.price, itemTotal, runningTotal: total });
         
         const itemElement = document.createElement('div');
         itemElement.className = 'order-summary-item';
@@ -63,8 +72,10 @@ function updateOrderSummary() {
         summary.appendChild(itemElement);
     }
     
+    console.log('Final total:', total);
     totalAmount.textContent = `${total.toLocaleString()}원`;
     submitButton.disabled = total === 0;
+    console.log('Submit button disabled:', submitButton.disabled);
 }
 
 async function submitOrder() {
