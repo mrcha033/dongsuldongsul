@@ -26,6 +26,13 @@ app = FastAPI()
 app.mount("/static", StaticFiles(directory="static"), name="static")
 templates = Jinja2Templates(directory="templates")
 
+# 커스텀 Jinja2 필터 추가
+def format_currency(value):
+    """숫자를 통화 형식으로 포맷팅 (예: 1,234,567)"""
+    return "{:,}".format(int(value))
+
+templates.env.filters["format_currency"] = format_currency
+
 # 관리자 인증 설정
 security = HTTPBasic()
 ADMIN_USERNAME = os.getenv("ADMIN_USERNAME", "admin")
