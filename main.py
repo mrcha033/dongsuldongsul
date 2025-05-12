@@ -223,39 +223,34 @@ async def generate_all_qr(request: Request):
 
 @app.get("/order", response_class=HTMLResponse)
 async def order_page(request: Request, table: int, db: Session = Depends(get_db)):
-    # 메뉴 데이터 가져오기
-    menu_prices, menu_names_kr, menu_categories, menu_items = get_menu_data(db)
+    # 메뉴 아이템 조회
+    menu_items = {}
+    for category in ["drinks", "main_dishes", "side_dishes"]:
+        items = db.query(MenuItem).filter(MenuItem.category == category).all()
+        menu_items[category] = [{
+            "id": item.id,
+            "name_kr": item.name_kr,
+            "name_en": item.name_en,
+            "price": item.price,
+            "description": item.description,
+            "image_filename": item.image_filename
+        } for item in items]
     
-    # 카테고리별 메뉴 그룹화
-    menu_by_category = {
-        "table": [],
-        "drinks": [],
-        "main_dishes": [],
-        "side_dishes": []
-    }
-    
-    # 상차림비 메뉴 추가
-    table_charge = MenuItem(
-        id=1,  # 고정된 ID 사용
-        name_en="table",
-        name_kr="상차림비(인당)",
-        price=6000,
-        category="table"
-    )
-    menu_by_category["table"].append(table_charge)
-    
-    # 나머지 메뉴 아이템들을 카테고리별로 그룹화
-    for item in menu_items.values():
-        if item.category in menu_by_category:
-            menu_by_category[item.category].append(item)
+    # 상차림비 추가
+    table_charge = db.query(MenuItem).filter(MenuItem.category == "table_charge").first()
+    if table_charge:
+        menu_items["table"] = [{
+            "id": table_charge.id,
+            "name_kr": table_charge.name_kr,
+            "name_en": table_charge.name_en,
+            "price": table_charge.price,
+            "description": table_charge.description,
+            "image_filename": table_charge.image_filename
+        }]
     
     return templates.TemplateResponse(
         "order.html",
-        {
-            "request": request,
-            "table_id": table,
-            "menu_items": menu_by_category
-        }
+        {"request": request, "table_id": table, "menu_items": menu_items}
     )
 
 @app.post("/submit_order")
