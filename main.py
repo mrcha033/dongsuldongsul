@@ -131,8 +131,8 @@ def get_menu_data(db: Session) -> Tuple[Dict[str, int], Dict[str, str], Dict[str
     """현재 활성화된 메뉴 데이터를 반환"""
     menu_items = db.query(MenuItem).filter(MenuItem.is_active == True).all()
     
-    menu_prices = {item.name_en: item.price for item in menu_items}
-    menu_names = {item.name_en: item.name_kr for item in menu_items}
+    menu_prices = {str(item.id): item.price for item in menu_items}
+    menu_names = {str(item.id): item.name_kr for item in menu_items}
     
     # 카테고리별 메뉴 그룹화
     menu_categories = {
@@ -424,11 +424,18 @@ async def kitchen_display(
     # 메뉴 데이터 가져오기
     menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
     
+    # 조리 중인 주문 (결제 확인된 주문)
     cooking_orders = db.query(Order).filter(
         Order.payment_status == "confirmed",
         Order.cooking_status.in_(["pending", "cooking"])
     ).order_by(Order.confirmed_at.desc()).all()
     
+    # 결제 대기 중인 주문
+    pending_orders = db.query(Order).filter(
+        Order.payment_status == "pending"
+    ).order_by(Order.created_at.desc()).all()
+    
+    # 완료된 주문
     completed_orders = db.query(Order).filter(
         Order.payment_status == "confirmed",
         Order.cooking_status == "completed"
@@ -439,9 +446,10 @@ async def kitchen_display(
         {
             "request": request,
             "cooking_orders": cooking_orders,
+            "pending_orders": pending_orders,
             "completed_orders": completed_orders,
             "username": username,
-            "menu_names": menu_names  # 메뉴 이름 정보 추가
+            "menu_names": menu_names
         }
     )
 
@@ -480,6 +488,9 @@ async def table_order_history(
     username: str = Depends(verify_admin)
 ):
     """테이블별 주문 내역 조회"""
+    # 메뉴 데이터 가져오기
+    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+    
     query = db.query(Order).filter(Order.table_id == table_id)
     
     # 상태별 필터링
@@ -511,7 +522,8 @@ async def table_order_history(
             "total_orders": total_orders,
             "current_status": status,
             "current_limit": limit,
-            "username": username
+            "username": username,
+            "menu_names": menu_names  # 메뉴 이름 정보 추가
         }
     )
 
