@@ -17,9 +17,11 @@
         <!-- 상차림비 섹션 -->
         <div class="card mb-4 animate-fade-in">
             <div class="card-header d-flex align-items-center">
-                <img src="/static/img/table.png" alt="상차림비" class="me-2" style="height: 2rem;">
+                <img src="/static/uploads/table.png" alt="상차림비" class="me-2" style="height: 2rem;">
                 <h3 class="mb-0 d-inline align-middle">
                     상차림비
+                </h3>
+            </div>
                 </h3>
             </div>
             <div class="card-body">
@@ -29,22 +31,15 @@
                             <div class="row g-0">
                                 <div class="col-12 col-sm-4 menu-image-container">
                                     {% if menu_items.table[0].image_filename %}
-                                    <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal" 
-                                       data-image-src="{{ url_for('static', path='uploads/' + menu_items.table[0].image_filename) }}" 
-                                       data-image-title="{{ menu_items.table[0].name_kr }}">
-                                        <img src="{{ url_for('static', path='uploads/' + menu_items.table[0].image_filename) }}" 
-                                             class="menu-image img-fluid" 
+                                        <img src="/static/uploads/{{ menu_items.table[0].image_filename }}" 
+                                             class="menu-image img-fluid zoomable-image" 
                                              alt="{{ menu_items.table[0].name_kr }}">
-                                    </a>
                                     {% else %}
-                                    <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal" 
-                                       data-image-src="/static/img/default_placeholder_large.png"  {# Fallback image for modal if actual is missing #}
-                                       data-image-title="{{ menu_items.table[0].name_kr }}">
-                                        <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
+                                        <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid zoomable-image">
                                             <i class="bi bi-people text-muted fs-1"></i>
                                         </div>
-                                    </a>
                                     {% endif %}
+                                    <div class="enlarged-image-view" style="display: none;"></div>
                                 </div>
                                 <div class="col-12 col-sm-8">
                                     <div class="p-3">
@@ -106,18 +101,15 @@
                             <div class="row g-0">
                                 <div class="col-12 col-sm-4 menu-image-container">
                                     {% if item.image_filename %}
-                                    <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal" 
-                                       data-image-src="{{ url_for('static', path='uploads/' + item.image_filename) }}" 
-                                       data-image-title="{{ item.name_kr }}">
-                                        <img src="{{ url_for('static', path='uploads/' + item.image_filename) }}" 
-                                             class="menu-image img-fluid" 
+                                        <img src="/static/uploads/{{ item.image_filename }}" 
+                                             class="menu-image img-fluid zoomable-image" 
                                              alt="{{ item.name_kr }}">
-                                    </a>
                                     {% else %}
-                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
-                                        <i class="bi bi-image text-muted fs-1"></i>
-                                    </div>
+                                        <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
+                                            <i class="bi bi-image text-muted fs-1"></i>
+                                        </div>
                                     {% endif %}
+                                    <div class="enlarged-image-view" style="display: none;"></div>
                                 </div>
                                 <div class="col-12 col-sm-8">
                                     <div class="p-3">
@@ -192,39 +184,74 @@
 <div id="menu-data" style="display: none;" data-menu='{{ menu_items|tojson }}'></div>
 <div id="table-data" style="display: none;" data-table-id="{{ table_id }}"></div>
 
-<!-- Image Modal -->
-<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
-  <div class="modal-dialog modal-lg modal-dialog-centered">
-    <div class="modal-content">
-      <div class="modal-header">
-        <h5 class="modal-title" id="imageModalLabel">Menu Image</h5>
-        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-      </div>
-      <div class="modal-body text-center">
-        <img src="" id="modalImageDisplay" class="img-fluid" alt="Full menu image" style="max-height: 80vh;">
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- 외부 JavaScript 파일 로드 -->
-<script src="{{ url_for('static', path='js/order.js') }}"></script>
+<script src="/static/js/order.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    var imageModal = document.getElementById('imageModal');
-    if (imageModal) {
-        imageModal.addEventListener('show.bs.modal', function (event) {
-            var button = event.relatedTarget; // Anchor that triggered the modal
-            var imageSrc = button.getAttribute('data-image-src');
-            var imageTitle = button.getAttribute('data-image-title');
+    // In-card image zoom logic
+    document.querySelectorAll('.zoomable-image').forEach(function (imageElement) {
+        imageElement.addEventListener('click', function () {
+            const menuCard = imageElement.closest('.menu-card');
+            const enlargedView = menuCard.querySelector('.enlarged-image-view');
+            
+            if (!menuCard || !enlargedView) return;
 
-            var modalTitle = imageModal.querySelector('.modal-title');
-            var modalImage = imageModal.querySelector('#modalImageDisplay');
-
-            modalTitle.textContent = imageTitle;
-            modalImage.src = imageSrc;
+            if (menuCard.classList.contains('image-enlarged')) {
+                // Already enlarged, so revert
+                menuCard.classList.remove('image-enlarged');
+                enlargedView.style.backgroundImage = ''; // Clear image
+            } else {
+                // Not enlarged, so enlarge it
+                let imageSrc = '';
+                if (imageElement.tagName === 'IMG') {
+                    imageSrc = imageElement.src; // Use the src of the clicked thumbnail directly
+                } else if (imageElement.classList.contains('menu-image')) { 
+                    // This handles the case for the table charge icon if it's a div and zoomable
+                    // We expect menu_items.table[0].image_filename to be 'table.png'
+                    // If menu_items.table[0].image_filename was not set or table.png is missing, 
+                    // the actual img tag for table charge wouldn't render, and this div would.
+                    // So, we explicitly try to load the designated table.png or a fallback.
+                    imageSrc = "/static/uploads/table.png"; // Default for table charge icon click
+                    // To make this more robust, you could add a data attribute to the div
+                    // e.g., data-large-src="/static/uploads/{{ menu_items.table[0].image_filename }}"
+                    // and retrieve it here. For now, direct assumption.
+                }
+                
+                if (imageSrc) {
+                    // Test if image exists before setting it, to prevent broken background
+                    const testImg = new Image();
+                    testImg.onload = function() {
+                        enlargedView.style.backgroundImage = 'url("' + imageSrc + '")';
+                        menuCard.classList.add('image-enlarged');
+                    };
+                    testImg.onerror = function() {
+                        // Fallback if the primary imageSrc fails to load for enlarged view
+                        enlargedView.style.backgroundImage = 'url("/static/img/default_placeholder_large.png")'; 
+                        menuCard.classList.add('image-enlarged');
+                        console.warn('Failed to load image for zoom: ' + imageSrc + '. Showing fallback.');
+                    };
+                    testImg.src = imageSrc;
+                } else {
+                    // Fallback if no imageSrc could be determined (e.g. icon of a regular item without image)
+                    // This case should ideally not be reached if non-image items are not 'zoomable-image'
+                    enlargedView.style.backgroundImage = 'url("/static/img/default_placeholder_large.png")'; 
+                    menuCard.classList.add('image-enlarged');
+                    console.warn('No image source for zoomable element. Showing fallback.');
+                }
+            }
         });
-    }
+    });
+
+    // Clicking the enlarged view itself also closes it
+    document.querySelectorAll('.enlarged-image-view').forEach(function(enlargedView) {
+        enlargedView.addEventListener('click', function() {
+            const menuCard = enlargedView.closest('.menu-card');
+            if (menuCard && menuCard.classList.contains('image-enlarged')) {
+                menuCard.classList.remove('image-enlarged');
+                enlargedView.style.backgroundImage = '';
+            }
+        });
+    });
 });
 </script>
 {% endblock %} 
