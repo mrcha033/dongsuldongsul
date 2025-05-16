@@ -109,9 +109,25 @@ def init_menu_data(db: Session):
     if db.query(MenuItem).first() is None:
         initial_menu = [
             MenuItem(name_kr="상차림비(인당)", name_en="table", price=6000, category="table"),
-            MenuItem(name_kr="🌟 두근두근 2인 세트", name_en="🌟 2-person set", price=32000, category="set_menu", description="둘이 앉아 조용히 속닥속닥 🌿\n(숲속 삼겹살 2인분 + 두부김치 + 음료 2잔 + 랜덤 뽑기권 1개)"),
-            MenuItem(name_kr="🌟 두근두근 4인 세트", name_en="🌟 4-person set", price=51900, category="set_menu", description="친구들, 이웃들 다 모여~ 파티 파티 🎇\n(숲속 삼겹살 3인분 + 두부김치 + 김치볶음밥 + 음료 4잔 + 랜덤 뽑기권 2개)"),
-            MenuItem(name_kr="🌟 모여봐요 6인 세트", name_en="🌟 6-person set", price=77900, category="set_menu", description="마을 축제처럼 신나게!\n(숲속 삼겹살 5인분 + 두부김치 + 김치볶음밥 + 콘치즈 + 마을 장터 나초 + 음료 6잔 + 랜덤 뽑기권 4개)"),
+            MenuItem(
+                name_kr="🌟 두근두근 2인 세트",
+                name_en="🌟 2-person set",
+                price=32000,
+                category="set_menu",
+                description="둘이 앉아 조용히 속닥속닥 🌿\n(숲속 삼겹살 2인분 + 두부김치 + 음료 2잔 + 랜덤 뽑기권 1개)",
+            ),
+            MenuItem(
+                name_kr="🌟 두근두근 4인 세트",
+                name_en="🌟 4-person set",
+                price=51900,
+                category="set_menu",
+                description="친구들, 이웃들 다 모여~ 파티 파티 🎇\n(숲속 삼겹살 3인분 + 두부김치 + 김치볶음밥 + 음료 4잔 + 랜덤 뽑기권 2개)"),
+            MenuItem(
+                name_kr="🌟 모여봐요 6인 세트",
+                name_en="🌟 6-person set",
+                price=77900,
+                category="set_menu",
+                description="마을 축제처럼 신나게!\n(숲속 삼겹살 5인분 + 두부김치 + 김치볶음밥 + 콘치즈 + 마을 장터 나초 + 음료 6잔 + 랜덤 뽑기권 4개)"),
             MenuItem(
                 name_kr="숲속 삼겹살",
                 name_en="samgyeopsal",
