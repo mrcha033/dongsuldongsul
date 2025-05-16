@@ -32,14 +32,13 @@
                                 <div class="col-12 col-sm-4 menu-image-container">
                                     {% if menu_items.table[0].image_filename %}
                                         <img src="/static/uploads/{{ menu_items.table[0].image_filename }}" 
-                                             class="menu-image img-fluid zoomable-image" 
+                                             class="menu-image img-fluid" 
                                              alt="{{ menu_items.table[0].name_kr }}">
                                     {% else %}
-                                        <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid zoomable-image">
+                                        <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
                                             <i class="bi bi-people text-muted fs-1"></i>
                                         </div>
                                     {% endif %}
-                                    <div class="enlarged-image-view" style="display: none;"></div>
                                 </div>
                                 <div class="col-12 col-sm-8">
                                     <div class="p-3">
@@ -102,14 +101,13 @@
                                 <div class="col-12 col-sm-4 menu-image-container">
                                     {% if item.image_filename %}
                                         <img src="/static/uploads/{{ item.image_filename }}" 
-                                             class="menu-image img-fluid zoomable-image" 
+                                             class="menu-image img-fluid" 
                                              alt="{{ item.name_kr }}">
                                     {% else %}
-                                        <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
-                                            <i class="bi bi-image text-muted fs-1"></i>
-                                        </div>
+                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
+                                        <i class="bi bi-image text-muted fs-1"></i>
+                                    </div>
                                     {% endif %}
-                                    <div class="enlarged-image-view" style="display: none;"></div>
                                 </div>
                                 <div class="col-12 col-sm-8">
                                     <div class="p-3">
@@ -186,72 +184,4 @@
 
 <!-- 외부 JavaScript 파일 로드 -->
 <script src="/static/js/order.js"></script>
-<script>
-document.addEventListener('DOMContentLoaded', function () {
-    // In-card image zoom logic
-    document.querySelectorAll('.zoomable-image').forEach(function (imageElement) {
-        imageElement.addEventListener('click', function () {
-            const menuCard = imageElement.closest('.menu-card');
-            const enlargedView = menuCard.querySelector('.enlarged-image-view');
-            
-            if (!menuCard || !enlargedView) return;
-
-            if (menuCard.classList.contains('image-enlarged')) {
-                // Already enlarged, so revert
-                menuCard.classList.remove('image-enlarged');
-                enlargedView.style.backgroundImage = ''; // Clear image
-            } else {
-                // Not enlarged, so enlarge it
-                let imageSrc = '';
-                if (imageElement.tagName === 'IMG') {
-                    imageSrc = imageElement.src; // Use the src of the clicked thumbnail directly
-                } else if (imageElement.classList.contains('menu-image')) { 
-                    // This handles the case for the table charge icon if it's a div and zoomable
-                    // We expect menu_items.table[0].image_filename to be 'table.png'
-                    // If menu_items.table[0].image_filename was not set or table.png is missing, 
-                    // the actual img tag for table charge wouldn't render, and this div would.
-                    // So, we explicitly try to load the designated table.png or a fallback.
-                    imageSrc = "/static/uploads/table.png"; // Default for table charge icon click
-                    // To make this more robust, you could add a data attribute to the div
-                    // e.g., data-large-src="/static/uploads/{{ menu_items.table[0].image_filename }}"
-                    // and retrieve it here. For now, direct assumption.
-                }
-                
-                if (imageSrc) {
-                    // Test if image exists before setting it, to prevent broken background
-                    const testImg = new Image();
-                    testImg.onload = function() {
-                        enlargedView.style.backgroundImage = 'url("' + imageSrc + '")';
-                        menuCard.classList.add('image-enlarged');
-                    };
-                    testImg.onerror = function() {
-                        // Fallback if the primary imageSrc fails to load for enlarged view
-                        enlargedView.style.backgroundImage = 'url("/static/img/default_placeholder_large.png")'; 
-                        menuCard.classList.add('image-enlarged');
-                        console.warn('Failed to load image for zoom: ' + imageSrc + '. Showing fallback.');
-                    };
-                    testImg.src = imageSrc;
-                } else {
-                    // Fallback if no imageSrc could be determined (e.g. icon of a regular item without image)
-                    // This case should ideally not be reached if non-image items are not 'zoomable-image'
-                    enlargedView.style.backgroundImage = 'url("/static/img/default_placeholder_large.png")'; 
-                    menuCard.classList.add('image-enlarged');
-                    console.warn('No image source for zoomable element. Showing fallback.');
-                }
-            }
-        });
-    });
-
-    // Clicking the enlarged view itself also closes it
-    document.querySelectorAll('.enlarged-image-view').forEach(function(enlargedView) {
-        enlargedView.addEventListener('click', function() {
-            const menuCard = enlargedView.closest('.menu-card');
-            if (menuCard && menuCard.classList.contains('image-enlarged')) {
-                menuCard.classList.remove('image-enlarged');
-                enlargedView.style.backgroundImage = '';
-            }
-        });
-    });
-});
-</script>
 {% endblock %} 
