@@ -130,7 +130,7 @@ def init_menu_data(db: Session):
                 name_en="🌟 6-person set",
                 price=77900,
                 category="set_menu",
-                description="마을 축제처럼 신나게!\\n(숲속 삼겹살 5인분 + 두부김치 + 김치볶음밥 + 콘치즈 + 마을 장터 나초 + 음료 6잔 + 랜덤 뽑기권 4개)",
+                description="마을 축제처럼 신나게!\n(숲속 삼겹살 5인분 + 두부김치 + 김치볶음밥 + 콘치즈 + 마을 장터 나초 + 음료 6잔 + 랜덤 뽑기권 4개)",
                 image_filename="6-person-set.png"
             ),
             MenuItem(
@@ -138,7 +138,7 @@ def init_menu_data(db: Session):
                 name_en="samgyeopsal",
                 price=8900,
                 category="main_dishes",
-                description="바람 솔솔~ 숲속 바비큐 파티 시작!\\n지글지글 구워서 따끈하게 한 점 🐷🔥",
+                description="바람 솔솔~ 숲속 바비큐 파티 시작!\n지글지글 구워서 따끈하게 한 점 🐷🔥",
                 image_filename="samgyeopsal.png"
             ),
             MenuItem(
@@ -146,7 +146,7 @@ def init_menu_data(db: Session):
                 name_en="kimchi_fried_rice",
                 price=7900,
                 category="main_dishes",
-                description="너굴 마트표 김치로 만든 마법의 볶음밥!\\n밤하늘 아래서 먹으면 꿀맛 🍚🌟",
+                description="너굴 마트표 김치로 만든 마법의 볶음밥!\n밤하늘 아래서 먹으면 꿀맛 🍚🌟",
                 image_filename="kimchi_fried_rice.png"
             ),
             MenuItem(
@@ -154,7 +154,7 @@ def init_menu_data(db: Session):
                 name_en="tofu_kimchi",
                 price=11900,
                 category="main_dishes",
-                description="마을 최고 셰프의 두부 + 정성으로 구운 김치\\n포근하고 든든한 마을 스타일 안주 💬🍽️",
+                description="마을 최고 셰프의 두부 + 정성으로 구운 김치\n포근하고 든든한 마을 스타일 안주 💬🍽️",
                 image_filename="tofu_kimchi.png"
             ),
             MenuItem(
@@ -162,7 +162,7 @@ def init_menu_data(db: Session):
                 name_en="corn_cheese",
                 price=6900,
                 category="main_dishes",
-                description="비둘기 마스터의 최애 간식!\\n달콤하고 고소해서 숟가락이 멈추지 않아요 🌽🧀✨",
+                description="비둘기 마스터의 최애 간식!\n달콤하고 고소해서 숟가락이 멈추지 않아요 🌽🧀✨",
                 image_filename="corn_cheese.png"
             ),
             MenuItem(
@@ -170,7 +170,7 @@ def init_menu_data(db: Session):
                 name_en="nachos",
                 price=6900,
                 category="main_dishes",
-                description="마을 주민들이 손수 만든 바삭바삭 나초 🌿\\n모닥불 옆에서 친구들과 나눠 먹는 소중한 맛 🎇",
+                description="마을 주민들이 손수 만든 바삭바삭 나초 🌿\n모닥불 옆에서 친구들과 나눠 먹는 소중한 맛 🎇",
                 image_filename="nachos.png"
             ),
             MenuItem(
@@ -178,7 +178,7 @@ def init_menu_data(db: Session):
                 name_en="forest_cider",
                 price=1900,
                 category="drinks",
-                description="시원한 바람처럼 톡톡~ 상쾌하게 🌬️🥤\\n(청량감 최고! 더위도 걱정 없어요 ❄️)",
+                description="시원한 바람처럼 톡톡~ 상쾌하게 🌬️🥤\n(청량감 최고! 더위도 걱정 없어요 ❄️)",
                 image_filename="forest_cider.png"
             ),
             MenuItem(
@@ -186,7 +186,7 @@ def init_menu_data(db: Session):
                 name_en="raccoon_cola",
                 price=1900,
                 category="drinks",
-                description="마을 장터에서 제일 인기 많은 탄산음료!\\n톡 쏘는 맛에 기분도 두 배 🎉🐾",
+                description="마을 장터에서 제일 인기 많은 탄산음료!\n톡 쏘는 맛에 기분도 두 배 🎉🐾",
                 image_filename="raccoon_cola.png"
             ),
             MenuItem(
@@ -194,7 +194,7 @@ def init_menu_data(db: Session):
                 name_en="owl_energy_drink",
                 price=1900,
                 category="drinks",
-                description="밤새 파티? 문제없어! 🦉🌙\\n부엉이처럼 깨어있게 도와주는 마법의 한 캔 🪄🥤",
+                description="밤새 파티? 문제없어! 🦉🌙\n부엉이처럼 깨어있게 도와주는 마법의 한 캔 🪄🥤",
                 image_filename="owl_energy_drink.png"
             ),
         ]
