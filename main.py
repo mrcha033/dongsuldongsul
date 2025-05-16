@@ -217,9 +217,9 @@ def get_menu_data(db: Session) -> Tuple[Dict[str, int], Dict[str, str], Dict[str
             "name": "안주 메뉴",
             "items": [item.name_en for item in menu_items if item.category == "main_dishes"]
         },
-        "side_dishes": {
-            "name": "사이드 메뉴",
-            "items": [item.name_en for item in menu_items if item.category == "side_dishes"]
+        "drinks": {
+            "name": "음료",
+            "items": [item.name_en for item in menu_items if item.category == "drinks"]
         }
     }
     
