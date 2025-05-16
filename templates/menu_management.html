@@ -217,7 +217,8 @@
                     </div>
                     <div class="mb-3">
                         <div class="form-check">
-                            <input type="checkbox" name="is_active" class="form-check-input" id="isActive{{ item.id }}" 
+                            <input type="hidden" name="is_active" value="false">
+                            <input type="checkbox" name="is_active" class="form-check-input" id="isActive{{ item.id }}" value="true"
                                    {% if item.is_active %}checked{% endif %}>
                             <label class="form-check-label" for="isActive{{ item.id }}">활성화</label>
                         </div>

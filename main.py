@@ -141,15 +141,19 @@ def get_menu_data(db: Session) -> Tuple[Dict[str, int], Dict[str, str], Dict[str
             "items": [item.name_en for item in menu_items if item.category == "table"]
         },
         "drinks": {
-            "name": "음료",
+            "name": "주류",
             "items": [item.name_en for item in menu_items if item.category == "drinks"]
         },
+        "set_menu": {
+            "name": "세트 메뉴",
+            "items": [item.name_en for item in menu_items if item.category == "set_menu"]
+        },
         "main_dishes": {
-            "name": "메인 요리",
+            "name": "안주 메뉴",
             "items": [item.name_en for item in menu_items if item.category == "main_dishes"]
         },
         "side_dishes": {
-            "name": "사이드 메뉴",
+            "name": "음료",
             "items": [item.name_en for item in menu_items if item.category == "side_dishes"]
         }
     }
