@@ -345,9 +345,9 @@ async def order_page(request: Request, table: int, db: Session = Depends(get_db)
         {
             "request": request, 
             "table_id": table, 
-            "menu_items_grouped_by_category": menu_items_grouped_by_category,
+            "menu_items_by_category": menu_items_grouped_by_category,
             "category_display_names": category_display_names,
-            "menu_item_details_for_js": menu_item_details_for_js # Pass this for order.js
+            "menu_item_details_for_js": menu_item_details_for_js
         }
     )
 
