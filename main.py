@@ -204,40 +204,42 @@ def init_menu_data(db: Session):
 # 메뉴 데이터 초기화
 init_menu_data(next(get_db()))
 
-# 메뉴 관련 함수들
-def get_menu_data(db: Session) -> Tuple[Dict[str, int], Dict[str, str], Dict[str, Dict[str, Any]], Dict[str, MenuItem]]:
-    """현재 활성화된 메뉴 데이터를 반환"""
-    menu_items = db.query(MenuItem).filter(MenuItem.is_active == True).all()
+# 메뉴 관련 함수들 (리팩토링된 버전)
+def get_menu_data(db: Session) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], Dict[str, List[MenuItem]], Dict[str, str]]:
+    """활성화된 메뉴 데이터를 다양한 형식으로 반환합니다."""
+    active_items = db.query(MenuItem).filter(MenuItem.is_active == True).order_by(MenuItem.name_kr).all()
+
+    # order.js 에 전달될 메뉴 아이템 정보 (ID를 키로, 아이템 상세 정보를 값으로 하는 딕셔너리)
+    menu_item_details_for_js = {
+        str(item.id): {
+            "id": str(item.id),
+            "name_kr": item.name_kr,
+            "price": item.price,
+            "is_active": item.is_active
+        } for item in active_items
+    }
+    menu_names_by_id = {str(item.id): item.name_kr for item in active_items}
+
+    # order.html 및 카테고리 기반 뷰를 위한 구조
+    # 카테고리 순서 정의 (order.html 표시 순서)
+    category_order = ["table", "set_menu", "main_dishes", "drinks", "side_dishes"]
     
-    menu_prices = {str(item.id): item.price for item in menu_items}
-    menu_names = {str(item.id): item.name_kr for item in menu_items}
-    
-    # 카테고리별 메뉴 그룹화
-    menu_categories = {
-        "table": {
-            "name": "상차림비(인당)",
-            "items": [item.name_en for item in menu_items if item.category == "table"]
-        },
-        "drinks": {
-            "name": "주류",
-            "items": [item.name_en for item in menu_items if item.category == "drinks"]
-        },
-        "set_menu": {
-            "name": "세트 메뉴",
-            "items": [item.name_en for item in menu_items if item.category == "set_menu"]
-        },
-        "main_dishes": {
-            "name": "안주 메뉴",
-            "items": [item.name_en for item in menu_items if item.category == "main_dishes"]
-        },
-        "drinks": {
-            "name": "음료",
-            "items": [item.name_en for item in menu_items if item.category == "drinks"]
-        }
+    menu_items_grouped_by_category = {category: [] for category in category_order}
+    for item in active_items:
+        if item.category in menu_items_grouped_by_category:
+            menu_items_grouped_by_category[item.category].append(item)
+
+    # 빈 카테고리 키는 유지하되, 리스트가 비어있음을 order.html에서 처리
+
+    category_display_names = {
+        "table": "상차림비",
+        "set_menu": "세트 메뉴",
+        "main_dishes": "메인 요리",
+        "drinks": "음료",
+        "side_dishes": "사이드 메뉴"
     }
     
-    # id를 키로 사용하는 메뉴 아이템 딕셔너리 생성
-    return menu_prices, menu_names, menu_categories, {str(item.id): item for item in menu_items}
+    return menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names
 
 def generate_qr_code(url: str, table_id: int) -> str:
     """QR 코드를 생성하고 저장된 경로를 반환합니다."""
@@ -313,35 +315,17 @@ async def generate_all_qr(request: Request):
 
 @app.get("/order", response_class=HTMLResponse)
 async def order_page(request: Request, table: int, db: Session = Depends(get_db)):
-    # 메뉴 아이템 조회
-    menu_items = {}
-    for category in ["set_menu", "drinks", "main_dishes", "side_dishes"]:
-        items = db.query(MenuItem).filter(MenuItem.category == category, MenuItem.is_active == True).all()
-        if items: # 카테고리에 아이템이 있을 경우에만 추가
-            menu_items[category] = [{
-                "id": item.id,
-                "name_kr": item.name_kr,
-                "name_en": item.name_en,
-                "price": item.price,
-                "description": item.description,
-                "image_filename": item.image_filename
-            } for item in items]
-    
-    # 상차림비 추가
-    table_charge = db.query(MenuItem).filter(MenuItem.category == "table").first()
-    if table_charge:
-        menu_items["table"] = [{
-            "id": table_charge.id,
-            "name_kr": table_charge.name_kr,
-            "name_en": table_charge.name_en,
-            "price": table_charge.price,
-            "description": table_charge.description,
-            "image_filename": table_charge.image_filename
-        }]
+    menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
     
     return templates.TemplateResponse(
         "order.html",
-        {"request": request, "table_id": table, "menu_items": menu_items}
+        {
+            "request": request, 
+            "table_id": table, 
+            "menu_items_grouped_by_category": menu_items_grouped_by_category,
+            "category_display_names": category_display_names,
+            "menu_item_details_for_js": menu_item_details_for_js # Pass this for order.js
+        }
     )
 
 @app.post("/submit_order")
@@ -356,8 +340,8 @@ async def submit_order(
         
         # 1. 메뉴 데이터 가져오기
         try:
-            menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
-            print(f"Retrieved menu data - prices: {menu_prices}, names: {menu_names}")
+            menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
+            print(f"Retrieved menu data - items: {menu_item_details_for_js}, names: {menu_names_by_id}")
         except Exception as e:
             print(f"Error getting menu data: {str(e)}")
             raise HTTPException(status_code=500, detail="Failed to retrieve menu data")
@@ -387,19 +371,19 @@ async def submit_order(
                     continue
                     
                 # item_id를 문자열로 변환하여 메뉴 아이템 조회
-                item = menu_items.get(str(item_id))
+                item = menu_item_details_for_js.get(str(item_id))
                 if not item:
                     print(f"Warning: Menu item not found for ID {item_id}")
                     continue
                     
-                if not item.is_active:
+                if not item['is_active']:
                     print(f"Warning: Menu item {item_id} is not active")
                     continue
                 
-                item_total = item.price * quantity
+                item_total = item['price'] * quantity
                 total_amount += item_total
                 valid_order_items[item_id] = quantity
-                print(f"Added item {item_id}: {quantity} x {item.price} = {item_total}")
+                print(f"Added item {item_id}: {quantity} x {item['price']} = {item_total}")
                 
             except (ValueError, TypeError) as e:
                 print(f"Error processing item {item_id}: {str(e)}")
@@ -446,7 +430,7 @@ async def submit_order(
             {
                 "request": request,
                 "order": order,
-                "menu_names": menu_names
+                "menu_names": menu_names_by_id
             }
         )
         
@@ -467,7 +451,7 @@ async def admin_orders(
     username: str = Depends(verify_admin)
 ):
     # 메뉴 데이터 가져오기
-    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+    menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
     
     # 결제 대기 중인 주문
     pending_orders = db.query(Order).filter(Order.payment_status == "pending").all()
@@ -492,7 +476,7 @@ async def admin_orders(
             "cooking_orders": cooking_orders,
             "completed_orders": completed_orders,
             "username": username,
-            "menu_names": menu_names
+            "menu_names": menu_names_by_id
         }
     )
 
@@ -519,7 +503,7 @@ async def kitchen_display(
     username: str = Depends(verify_admin)
 ):
     # 메뉴 데이터 가져오기
-    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+    menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
     
     # 조리 중인 주문 (결제 확인된 주문)
     cooking_orders = db.query(Order).filter(
@@ -546,7 +530,7 @@ async def kitchen_display(
             "pending_orders": pending_orders,
             "completed_orders": completed_orders,
             "username": username,
-            "menu_names": menu_names
+            "menu_names": menu_names_by_id
         }
     )
 
@@ -586,7 +570,7 @@ async def table_order_history(
 ):
     """테이블별 주문 내역 조회"""
     # 메뉴 데이터 가져오기
-    menu_prices, menu_names, menu_categories, menu_items = get_menu_data(db)
+    menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
     
     query = db.query(Order).filter(Order.table_id == table_id)
     
@@ -620,7 +604,7 @@ async def table_order_history(
             "current_status": status,
             "current_limit": limit,
             "username": username,
-            "menu_names": menu_names  # 메뉴 이름 정보 추가
+            "menu_names": menu_names_by_id  # 메뉴 이름 정보 추가
         }
     )
 
