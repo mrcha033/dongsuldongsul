@@ -16,9 +16,10 @@
 
         <!-- 상차림비 섹션 -->
         <div class="card mb-4 animate-fade-in">
-            <div class="card-header">
-                <h3 class="mb-0">
-                    <i class="bi bi-people me-2"></i>상차림비
+            <div class="card-header d-flex align-items-center">
+                <img src="/static/img/table.png" alt="상차림비" class="me-2" style="height: 2rem;">
+                <h3 class="mb-0 d-inline align-middle">
+                    상차림비
                 </h3>
             </div>
             <div class="card-body">
@@ -27,9 +28,23 @@
                         <div class="menu-card">
                             <div class="row g-0">
                                 <div class="col-12 col-sm-4 menu-image-container">
-                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
-                                        <i class="bi bi-people text-muted fs-1"></i>
-                                    </div>
+                                    {% if menu_items.table[0].image_filename %}
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal" 
+                                       data-image-src="{{ url_for('static', path='uploads/' + menu_items.table[0].image_filename) }}" 
+                                       data-image-title="{{ menu_items.table[0].name_kr }}">
+                                        <img src="{{ url_for('static', path='uploads/' + menu_items.table[0].image_filename) }}" 
+                                             class="menu-image img-fluid" 
+                                             alt="{{ menu_items.table[0].name_kr }}">
+                                    </a>
+                                    {% else %}
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal" 
+                                       data-image-src="/static/img/default_placeholder_large.png"  {# Fallback image for modal if actual is missing #}
+                                       data-image-title="{{ menu_items.table[0].name_kr }}">
+                                        <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
+                                            <i class="bi bi-people text-muted fs-1"></i>
+                                        </div>
+                                    </a>
+                                    {% endif %}
                                 </div>
                                 <div class="col-12 col-sm-8">
                                     <div class="p-3">
@@ -91,9 +106,13 @@
                             <div class="row g-0">
                                 <div class="col-12 col-sm-4 menu-image-container">
                                     {% if item.image_filename %}
-                                    <img src="/static/uploads/{{ item.image_filename }}" 
-                                         class="menu-image img-fluid" 
-                                         alt="{{ item.name_kr }}">
+                                    <a href="#" data-bs-toggle="modal" data-bs-target="#imageModal" 
+                                       data-image-src="{{ url_for('static', path='uploads/' + item.image_filename) }}" 
+                                       data-image-title="{{ item.name_kr }}">
+                                        <img src="{{ url_for('static', path='uploads/' + item.image_filename) }}" 
+                                             class="menu-image img-fluid" 
+                                             alt="{{ item.name_kr }}">
+                                    </a>
                                     {% else %}
                                     <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
                                         <i class="bi bi-image text-muted fs-1"></i>
@@ -173,6 +192,39 @@
 <div id="menu-data" style="display: none;" data-menu='{{ menu_items|tojson }}'></div>
 <div id="table-data" style="display: none;" data-table-id="{{ table_id }}"></div>
 
+<!-- Image Modal -->
+<div class="modal fade" id="imageModal" tabindex="-1" aria-labelledby="imageModalLabel" aria-hidden="true">
+  <div class="modal-dialog modal-lg modal-dialog-centered">
+    <div class="modal-content">
+      <div class="modal-header">
+        <h5 class="modal-title" id="imageModalLabel">Menu Image</h5>
+        <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+      </div>
+      <div class="modal-body text-center">
+        <img src="" id="modalImageDisplay" class="img-fluid" alt="Full menu image" style="max-height: 80vh;">
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- 외부 JavaScript 파일 로드 -->
-<script src="/static/js/order.js"></script>
+<script src="{{ url_for('static', path='js/order.js') }}"></script>
+<script>
+document.addEventListener('DOMContentLoaded', function () {
+    var imageModal = document.getElementById('imageModal');
+    if (imageModal) {
+        imageModal.addEventListener('show.bs.modal', function (event) {
+            var button = event.relatedTarget; // Anchor that triggered the modal
+            var imageSrc = button.getAttribute('data-image-src');
+            var imageTitle = button.getAttribute('data-image-title');
+
+            var modalTitle = imageModal.querySelector('.modal-title');
+            var modalImage = imageModal.querySelector('#modalImageDisplay');
+
+            modalTitle.textContent = imageTitle;
+            modalImage.src = imageSrc;
+        });
+    }
+});
+</script>
 {% endblock %} 
