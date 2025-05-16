@@ -26,12 +26,12 @@
                     <div class="col-12">
                         <div class="menu-card">
                             <div class="row g-0">
-                                <div class="col-4">
-                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light">
+                                <div class="col-12 col-sm-4 menu-image-container">
+                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
                                         <i class="bi bi-people text-muted fs-1"></i>
                                     </div>
                                 </div>
-                                <div class="col-8">
+                                <div class="col-12 col-sm-8">
                                     <div class="p-3">
                                         <h5 class="mb-1">상차림비(인당)</h5>
                                         <small class="text-muted d-block mb-2">table charge per person</small>
@@ -85,18 +85,18 @@
                     <div class="col">
                         <div class="menu-card">
                             <div class="row g-0">
-                                <div class="col-4">
+                                <div class="col-12 col-sm-4 menu-image-container">
                                     {% if item.image_filename %}
                                     <img src="/static/uploads/{{ item.image_filename }}" 
-                                         class="menu-image" 
+                                         class="menu-image img-fluid" 
                                          alt="{{ item.name_kr }}">
                                     {% else %}
-                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light">
+                                    <div class="menu-image d-flex align-items-center justify-content-center bg-light img-fluid">
                                         <i class="bi bi-image text-muted fs-1"></i>
                                     </div>
                                     {% endif %}
                                 </div>
-                                <div class="col-8">
+                                <div class="col-12 col-sm-8">
                                     <div class="p-3">
                                         <h5 class="mb-1">{{ item.name_kr }}</h5>
                                         <small class="text-muted d-block mb-2">{{ item.name_en }}</small>
