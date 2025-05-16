@@ -93,10 +93,38 @@ body {
     border-color: var(--primary-color);
 }
 
-.menu-image {
-    height: 120px;
+/* New .menu-image styles */
+.menu-image { /* This is the <img> tag or the placeholder div */
+    width: 100%;
     object-fit: cover;
-    border-radius: var(--border-radius) 0 0 var(--border-radius);
+    display: block; /* Ensures it behaves as a block element */
+}
+
+/* Styles for stacked view (mobile first approach) */
+.menu-card .menu-image-container .menu-image {
+    aspect-ratio: 16 / 9; /* Or 4/3, 3/2 - adjust to preference */
+    height: auto; /* Let aspect-ratio define height */
+    border-radius: var(--border-radius) var(--border-radius) 0 0; /* Top corners rounded */
+}
+
+/* Styles for the placeholder icon in stacked view */
+.menu-card .menu-image-container .menu-image.d-flex { /* This targets the placeholder div */
+    aspect-ratio: 16 / 9; /* Keep consistent aspect ratio */
+    height: auto; /* Let aspect-ratio define height */
+}
+
+/* Styles for side-by-side view (screens sm and up) */
+@media (min-width: 576px) { /* Bootstrap's sm breakpoint */
+    .menu-card .menu-image-container .menu-image {
+        height: 170px; /* Adjust this value based on visual preference alongside text content */
+        aspect-ratio: unset;
+        border-radius: var(--border-radius) 0 0 var(--border-radius);
+    }
+
+    .menu-card .menu-image-container .menu-image.d-flex { /* Placeholder */
+        height: 170px; /* Match actual image height */
+        aspect-ratio: unset;
+    }
 }
 
 .menu-description {
@@ -368,9 +396,11 @@ body {
         margin-bottom: 1rem;
     }
     
-    .menu-image {
+    /* 
+    .menu-image {{
         height: 100px;
-    }
+    }} 
+    */
     
     .card-body {
         padding: 1rem;
