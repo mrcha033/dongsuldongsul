@@ -18,9 +18,31 @@ from typing import Optional, List, Dict, Tuple, Any
 from fastapi import WebSocket
 from fastapi import WebSocketDisconnect
 from fastapi import BackgroundTasks
+import datetime as dt # Import datetime as dt to avoid conflict if datetime was used as variable name
 
 # FastAPI 앱 생성
 app = FastAPI()
+
+# KST timezone object
+KST = dt.timezone(dt.timedelta(hours=9))
+
+# Custom Jinja2 filter to convert UTC to KST and format
+def to_kst_filter(utc_dt):
+    if not utc_dt: # Handle None or empty values
+        return ""
+    if isinstance(utc_dt, str): # If it's already a string, try to parse, or return as is
+        try:
+            # Attempt to parse if it's a common ISO format string
+            # This might need adjustment based on how strings are stored/passed
+            utc_dt = dt.datetime.fromisoformat(utc_dt.replace('Z', '+00:00'))
+        except ValueError:
+            return utc_dt # Return original string if parsing fails
+    
+    if utc_dt.tzinfo is None:
+        utc_dt = utc_dt.replace(tzinfo=dt.timezone.utc) # Assume naive datetime is UTC
+    
+    kst_dt = utc_dt.astimezone(KST)
+    return kst_dt.strftime("%Y-%m-%d %H:%M") # Desired KST format
 
 # 정적 파일과 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
@@ -32,6 +54,7 @@ def format_currency(value):
     return "{:,}".format(int(value))
 
 templates.env.filters["format_currency"] = format_currency
+templates.env.filters["kst"] = to_kst_filter # Register the new KST filter
 
 # 관리자 인증 설정
 security = HTTPBasic()

@@ -8,16 +8,15 @@
         <div class="col-md-8">
             <div class="card">
                 <div class="card-body text-center">
-                    <h2 class="card-title mb-4">주문이 완료되었습니다!</h2>
+                    <i class="bi bi-check-circle-fill text-success display-1 mb-3"></i>
+                    <h2 class="card-title">주문이 성공적으로 접수되었습니다!</h2>
+                    <p class="card-text fs-5">테이블 번호: <strong>{{ order.table_id }}</strong></p>
+                    <p class="card-text fs-5">주문 번호: <strong>#{{ order.id }}</strong></p>
+                    <p class="card-text fs-5">주문 시간: <strong>{{ order.created_at|kst if order.created_at else '-' }}</strong></p>
+                    <p class="card-text fs-5">총 금액: <strong>{{ order.amount|format_currency }}원</strong></p>
                     
-                    <div class="order-details mb-4">
-                        <p class="mb-2">주문 번호: <strong>#{{ order.id }}</strong></p>
-                        <p class="mb-2">테이블 번호: <strong>{{ order.table_id }}번</strong></p>
-                        <p class="mb-2">송금 금액: <strong>{{ order.amount|format_currency }}원</strong></p>
-                    </div>
-
+                    <h4 class="mt-4 mb-3">주문 내역</h4>
                     <div class="order-items mb-4">
-                        <h4>주문 내역</h4>
                         <ul class="list-group">
                             {% for item_id, quantity in order.menu.items() %}
                             <li class="list-group-item d-flex justify-content-between align-items-center">

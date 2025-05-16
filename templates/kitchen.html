@@ -73,7 +73,7 @@
                                     {% for order in pending_orders %}
                                     <tr>
                                         <td>{{ order.table_id }}번</td>
-                                        <td>{{ order.created_at.strftime('%H:%M') }}</td>
+                                        <td>{{ order.created_at|kst if order.created_at else '-' }}</td>
                                         <td>
                                             <ul class="list-unstyled mb-0">
                                                 {% for menu_id, quantity in order.menu.items() %}
@@ -116,7 +116,7 @@
                                     {% for order in cooking_orders %}
                                     <tr>
                                         <td>{{ order.table_id }}번</td>
-                                        <td>{{ order.confirmed_at.strftime('%H:%M') }}</td>
+                                        <td>{{ order.confirmed_at|kst if order.confirmed_at else '-' }}</td>
                                         <td>
                                             <ul class="list-unstyled mb-0">
                                                 {% for menu_id, quantity in order.menu.items() %}
@@ -212,7 +212,7 @@
                                     {% for order in completed_orders %}
                                     <tr>
                                         <td>{{ order.table_id }}번</td>
-                                        <td>{{ order.completed_at.strftime('%H:%M') }}</td>
+                                        <td>{{ order.completed_at|kst if order.completed_at else '-' }}</td>
                                         <td>
                                             <ul class="list-unstyled mb-0">
                                                 {% for menu_id, quantity in order.menu.items() %}
