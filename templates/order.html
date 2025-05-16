@@ -35,7 +35,7 @@
                                     <div class="p-3">
                                         <h5 class="mb-1">상차림비(인당)</h5>
                                         <small class="text-muted d-block mb-2">table charge per person</small>
-                                        <div class="d-flex justify-content-between align-items-center">
+                                        <div class="d-flex justify-content-between align-items-center mt-auto">
                                             <span class="price">{{ "{:,}".format(menu_items.table[0].price|int) }}원</span>
                                             <div class="quantity-controls">
                                                 <button type="button" 
@@ -70,12 +70,16 @@
         <div class="card mb-4 animate-fade-in">
             <div class="card-header">
                 <h3 class="mb-0">
-                    {% if category_name == 'drinks' %}
+                    {% if category_name == 'set_menu' %}
+                    <i class="bi bi-collection me-2"></i>세트 메뉴
+                    {% elif category_name == 'drinks' %}
                     <i class="bi bi-cup-hot me-2"></i>음료
                     {% elif category_name == 'main_dishes' %}
                     <i class="bi bi-egg-fried me-2"></i>메인 요리
-                    {% else %}
+                    {% elif category_name == 'side_dishes' %}
                     <i class="bi bi-basket me-2"></i>사이드 메뉴
+                    {% else %}
+                    <i class="bi bi-list-ul me-2"></i>{{ category_name|capitalize }}
                     {% endif %}
                 </h3>
             </div>
@@ -103,7 +107,7 @@
                                         {% if item.description %}
                                         <p class="menu-description">{{ item.description }}</p>
                                         {% endif %}
-                                        <div class="d-flex justify-content-between align-items-center">
+                                        <div class="d-flex justify-content-between align-items-center mt-auto">
                                             <span class="price">{{ "{:,}".format(item.price|int) }}원</span>
                                             <div class="quantity-controls">
                                                 <button type="button" 

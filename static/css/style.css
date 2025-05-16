@@ -136,6 +136,20 @@ body {
     line-clamp: 2;
     -webkit-box-orient: vertical;
     overflow: hidden;
+    overflow-wrap: break-word;
+}
+
+/* Ensure menu card titles also wrap */
+.menu-card h5 {
+    overflow-wrap: break-word;
+}
+
+/* Ensure the text content block handles overflow and flex layout */
+.menu-card .col-12.col-sm-8 > .p-3 {
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
+    height: 100%;
 }
 
 /* Quantity Controls */

@@ -83,8 +83,14 @@
                                     <span class="badge bg-info">음료</span>
                                     {% elif item.category == 'main_dishes' %}
                                     <span class="badge bg-primary">메인</span>
-                                    {% else %}
+                                    {% elif item.category == 'set_menu' %}
+                                    <span class="badge" style="background-color: #FFD700; color: #333;">세트</span>
+                                    {% elif item.category == 'side_dishes' %}
                                     <span class="badge bg-secondary">사이드</span>
+                                    {% elif item.category == 'table' %}
+                                    <span class="badge bg-dark">테이블</span>
+                                    {% else %}
+                                    <span class="badge bg-light text-dark">{{ item.category }}</span>
                                     {% endif %}
                                 </td>
                                 <td>

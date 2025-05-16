@@ -202,8 +202,8 @@ def get_menu_data(db: Session) -> Tuple[Dict[str, int], Dict[str, str], Dict[str
             "items": [item.name_en for item in menu_items if item.category == "main_dishes"]
         },
         "side_dishes": {
-            "name": "음료",
-            "items": [item.name_en for item in menu_items if item.category == "drinks"]
+            "name": "사이드 메뉴",
+            "items": [item.name_en for item in menu_items if item.category == "side_dishes"]
         }
     }
     
@@ -286,16 +286,17 @@ async def generate_all_qr(request: Request):
 async def order_page(request: Request, table: int, db: Session = Depends(get_db)):
     # 메뉴 아이템 조회
     menu_items = {}
-    for category in ["drinks", "main_dishes", "side_dishes"]:
-        items = db.query(MenuItem).filter(MenuItem.category == category).all()
-        menu_items[category] = [{
-            "id": item.id,
-            "name_kr": item.name_kr,
-            "name_en": item.name_en,
-            "price": item.price,
-            "description": item.description,
-            "image_filename": item.image_filename
-        } for item in items]
+    for category in ["set_menu", "drinks", "main_dishes", "side_dishes"]:
+        items = db.query(MenuItem).filter(MenuItem.category == category, MenuItem.is_active == True).all()
+        if items: # 카테고리에 아이템이 있을 경우에만 추가
+            menu_items[category] = [{
+                "id": item.id,
+                "name_kr": item.name_kr,
+                "name_en": item.name_en,
+                "price": item.price,
+                "description": item.description,
+                "image_filename": item.image_filename
+            } for item in items]
     
     # 상차림비 추가
     table_charge = db.query(MenuItem).filter(MenuItem.category == "table").first()
