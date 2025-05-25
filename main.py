@@ -19,9 +19,24 @@ from fastapi import WebSocket
 from fastapi import WebSocketDisconnect
 from fastapi import BackgroundTasks
 import datetime as dt # Import datetime as dt to avoid conflict if datetime was used as variable name
+from pydantic import BaseModel
 
 # FastAPI 앱 생성
 app = FastAPI()
+
+# 응답 모델 정의
+class OnlineTableInfo(BaseModel):
+    table_id: int
+    nickname: str
+
+class OnlineTablesResponse(BaseModel):
+    online_tables: List[OnlineTableInfo]
+
+class GiftOrderRequest(BaseModel):
+    from_table_id: int
+    to_table_id: int
+    menu: Dict[str, int]  # item_id: quantity
+    message: Optional[str] = None
 
 # KST timezone object
 KST = dt.timezone(dt.timedelta(hours=9))
@@ -101,6 +116,17 @@ class Order(Base):
     confirmed_at = Column(DateTime, nullable=True)
     completed_at = Column(DateTime, nullable=True)
 
+class ChatMessage(Base):
+    __tablename__ = "chat_messages"
+
+    id = Column(Integer, primary_key=True, index=True)
+    table_id = Column(Integer, index=True)  # 보내는 사람의 테이블 번호
+    message = Column(String)
+    nickname = Column(String, default="손님")  # 닉네임
+    is_global = Column(Boolean, default=True)  # True: 전체 채팅, False: 개별 채팅
+    target_table_id = Column(Integer, nullable=True)  # 개별 채팅 시 대상 테이블 (향후 확장용)
+    created_at = Column(DateTime, default=datetime.utcnow)
+
 class MenuItem(Base):
     __tablename__ = "menu_items"
 
@@ -137,15 +163,15 @@ def init_menu_data(db: Session):
                 name_en="🌟 2-person set",
                 price=32000,
                 category="set_menu",
-                description="둘이 앉아 조용히 속닥속닥 🌿\\n(숲속 삼겹살 2인분 + 두부김치 + 음료 2잔 + 랜덤 뽑기권 1개)",
+                description="둘이 앉아 조용히 속닥속닥 🌿\n(숲속 삼겹살 2인분 + 두부김치 + 음료 2잔 + 랜덤 뽑기권 1개)",
                 image_filename="2-person-set.png"
             ),
             MenuItem(
-                name_kr="🌟 두근두근 4인 세트",
+                name_kr="🌟 단짝 4인 세트",
                 name_en="🌟 4-person set",
                 price=51900,
                 category="set_menu",
-                description="친구들, 이웃들 다 모여~ 파티 파티 🎇\\n(숲속 삼겹살 3인분 + 두부김치 + 김치볶음밥 + 음료 4잔 + 랜덤 뽑기권 2개)",
+                description="친구들, 이웃들 다 모여~ 파티 파티 🎇\n(숲속 삼겹살 3인분 + 두부김치 + 김치볶음밥 + 음료 4잔 + 랜덤 뽑기권 2개)",
                 image_filename="4-person-set.png"
             ),
             MenuItem(
@@ -230,7 +256,7 @@ init_menu_data(next(get_db()))
 # 메뉴 관련 함수들 (리팩토링된 버전)
 def get_menu_data(db: Session) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str], Dict[str, List[MenuItem]], Dict[str, str]]:
     """활성화된 메뉴 데이터를 다양한 형식으로 반환합니다."""
-    active_items = db.query(MenuItem).filter(MenuItem.is_active == True).order_by(MenuItem.name_kr).all()
+    active_items = db.query(MenuItem).filter(MenuItem.is_active == True).order_by(MenuItem.id).all()
 
     # order.js 에 전달될 메뉴 아이템 정보 (ID를 키로, 아이템 상세 정보를 값으로 하는 딕셔너리)
     menu_item_details_for_js = {
@@ -251,6 +277,15 @@ def get_menu_data(db: Session) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str
     for item in active_items:
         if item.category in menu_items_grouped_by_category:
             menu_items_grouped_by_category[item.category].append(item)
+
+    # 세트메뉴는 2인 -> 4인 -> 6인 순서로 정렬
+    if menu_items_grouped_by_category["set_menu"]:
+        menu_items_grouped_by_category["set_menu"].sort(key=lambda x: (
+            0 if "2인" in x.name_kr else
+            1 if "4인" in x.name_kr else
+            2 if "6인" in x.name_kr else
+            3
+        ))
 
     # 빈 카테고리 키는 유지하되, 리스트가 비어있음을 order.html에서 처리
 
@@ -285,6 +320,161 @@ def generate_qr_code(url: str, table_id: int) -> str:
 @app.get("/", response_class=HTMLResponse)
 async def home(request: Request):
     return templates.TemplateResponse("index.html", {"request": request})
+
+# 채팅 페이지(구현 예정정)
+@app.get("/chat", response_class=HTMLResponse)
+async def chat(request: Request):
+    return templates.TemplateResponse("chat.html", {"request": request})
+
+@app.post("/chat/send")
+async def send_chat_message(
+    request: Request,
+    table_id: int = Form(...),
+    message: str = Form(...),
+    nickname: str = Form(None),
+    target_table_id: int = Form(None),  # 개인 메시지 대상 테이블 ID
+    db: Session = Depends(get_db)
+):
+    """채팅 메시지 전송 (전체 채팅 또는 개인 메시지)"""
+    try:
+        # 닉네임 설정 (없으면 기본값)
+        if nickname:
+            manager.set_nickname(table_id, nickname)
+            display_nickname = nickname
+        else:
+            display_nickname = manager.get_nickname(table_id)
+        
+        # 개인 메시지인지 전체 메시지인지 판단
+        is_private = target_table_id is not None
+        
+        # 메시지를 데이터베이스에 저장
+        chat_message = ChatMessage(
+            table_id=table_id,
+            message=message,
+            nickname=display_nickname,
+            is_global=not is_private,  # 개인 메시지면 False, 전체 메시지면 True
+            target_table_id=target_table_id if is_private else None
+        )
+        db.add(chat_message)
+        db.commit()
+        db.refresh(chat_message)
+        
+        # WebSocket으로 실시간 전송
+        message_data = {
+            "type": "chat_message",
+            "id": chat_message.id,
+            "table_id": table_id,
+            "nickname": display_nickname,
+            "message": message,
+            "created_at": chat_message.created_at.isoformat(),
+            "formatted_time": to_kst_filter(chat_message.created_at),
+            "is_private": is_private,
+            "target_table_id": target_table_id
+        }
+        
+        if is_private:
+            # 개인 메시지인 경우 보낸 사람과 받는 사람에게만 전송
+            await manager.broadcast_to_table(table_id, json.dumps(message_data))  # 보낸 사람
+            await manager.broadcast_to_table(target_table_id, json.dumps(message_data))  # 받는 사람
+        else:
+            # 전체 메시지인 경우 모든 사람에게 전송
+            await manager.broadcast_to_all(json.dumps(message_data))
+        
+        return {"success": True, "message_id": chat_message.id, "is_private": is_private}
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/chat/messages")
+async def get_chat_messages(
+    table_id: int = None,  # 현재 사용자의 테이블 ID 추가
+    limit: int = 50,
+    before_id: int = None,
+    db: Session = Depends(get_db)
+):
+    """채팅 메시지 목록 조회 (전체 메시지 + 관련된 개인 메시지)"""
+    
+    if table_id:
+        # 전체 메시지 + 해당 테이블과 관련된 개인 메시지
+        query = db.query(ChatMessage).filter(
+            (ChatMessage.is_global == True) |  # 전체 메시지
+            (ChatMessage.table_id == table_id) |  # 내가 보낸 개인 메시지
+            (ChatMessage.target_table_id == table_id)  # 나에게 온 개인 메시지
+        )
+    else:
+        # table_id가 없으면 전체 메시지만
+        query = db.query(ChatMessage).filter(ChatMessage.is_global == True)
+    
+    if before_id:
+        query = query.filter(ChatMessage.id < before_id)
+    
+    messages = query.order_by(ChatMessage.created_at.desc()).limit(limit).all()
+    
+    return {
+        "messages": [
+            {
+                "id": msg.id,
+                "table_id": msg.table_id,
+                "nickname": msg.nickname,
+                "message": msg.message,
+                "created_at": msg.created_at.isoformat(),
+                "formatted_time": to_kst_filter(msg.created_at),
+                "is_private": not msg.is_global,
+                "target_table_id": msg.target_table_id
+            }
+            for msg in reversed(messages)
+        ]
+    }
+
+@app.get("/chat/online-tables", response_model=OnlineTablesResponse)
+async def get_online_tables():
+    """현재 온라인인 테이블 목록 조회"""
+    try:
+        online_tables = manager.get_online_tables()
+        table_info = []
+        for table_id in online_tables:
+            try:
+                nickname = manager.get_nickname(table_id)
+                # nickname이 None이거나 빈 문자열인 경우 기본값 사용
+                if not nickname:
+                    nickname = f"테이블{table_id}"
+                
+                table_info.append(OnlineTableInfo(
+                    table_id=table_id,
+                    nickname=str(nickname)  # 문자열로 확실히 변환
+                ))
+            except Exception as e:
+                print(f"Error processing table {table_id}: {str(e)}")
+                # 개별 테이블 처리 오류 시 기본값으로 추가
+                table_info.append(OnlineTableInfo(
+                    table_id=table_id,
+                    nickname=f"테이블{table_id}"
+                ))
+        
+        return OnlineTablesResponse(online_tables=table_info)
+    except Exception as e:
+        print(f"Error in get_online_tables: {str(e)}")
+        # 오류 발생 시 빈 목록 반환
+        return OnlineTablesResponse(online_tables=[])
+
+@app.get("/chat/{table_id}", response_class=HTMLResponse)
+async def chat_with_table(request: Request, table_id: int, db: Session = Depends(get_db)):
+    """특정 테이블 번호로 채팅 페이지 접속"""
+    # 최근 채팅 메시지 조회 (최근 50개)
+    recent_messages = db.query(ChatMessage).filter(
+        ChatMessage.is_global == True
+    ).order_by(ChatMessage.created_at.desc()).limit(50).all()
+    recent_messages.reverse()  # 시간 순으로 정렬
+    
+    # 현재 온라인인 테이블 목록
+    online_tables = manager.get_online_tables()
+    
+    return templates.TemplateResponse("chat.html", {
+        "request": request,
+        "table_id": table_id,
+        "recent_messages": recent_messages,
+        "online_tables": online_tables
+    })
 
 @app.get("/generate-qr/{table_id}")
 async def generate_table_qr(table_id: int, request: Request):
@@ -453,6 +643,7 @@ async def submit_order(
             {
                 "request": request,
                 "order": order,
+                "table_id": table_id,
                 "menu_names": menu_names_by_id
             }
         )
@@ -770,30 +961,82 @@ async def delete_menu_item(
 # WebSocket 연결 관리를 위한 클래스
 class ConnectionManager:
     def __init__(self):
-        self.active_connections: List[WebSocket] = []
+        self.active_connections: Dict[int, List[WebSocket]] = {}  # table_id: [websockets]
+        self.table_nicknames: Dict[int, str] = {}  # table_id: nickname
 
-    async def connect(self, websocket: WebSocket):
+    async def connect(self, websocket: WebSocket, table_id: int):
         await websocket.accept()
-        self.active_connections.append(websocket)
+        if table_id not in self.active_connections:
+            self.active_connections[table_id] = []
+        self.active_connections[table_id].append(websocket)
 
-    def disconnect(self, websocket: WebSocket):
-        self.active_connections.remove(websocket)
+    def disconnect(self, websocket: WebSocket, table_id: int):
+        if table_id in self.active_connections:
+            self.active_connections[table_id].remove(websocket)
+            if not self.active_connections[table_id]:
+                del self.active_connections[table_id]
+
+    async def broadcast_to_all(self, message: str):
+        """모든 연결된 클라이언트에게 메시지 전송"""
+        for table_connections in self.active_connections.values():
+            for connection in table_connections:
+                try:
+                    await connection.send_text(message)
+                except:
+                    pass  # 연결이 끊어진 경우 무시
+
+    async def broadcast_to_table(self, table_id: int, message: str):
+        """특정 테이블에게만 메시지 전송"""
+        if table_id in self.active_connections:
+            for connection in self.active_connections[table_id]:
+                try:
+                    await connection.send_text(message)
+                except:
+                    pass
 
     async def broadcast(self, message: str):
-        for connection in self.active_connections:
-            await connection.send_text(message)
+        """기존 호환성을 위한 메서드"""
+        await self.broadcast_to_all(message)
+
+    def get_online_tables(self) -> List[int]:
+        """현재 온라인인 테이블 목록 반환"""
+        return list(self.active_connections.keys())
+
+    def set_nickname(self, table_id: int, nickname: str):
+        """테이블의 닉네임 설정"""
+        self.table_nicknames[table_id] = nickname
+
+    def get_nickname(self, table_id: int) -> str:
+        """테이블의 닉네임 반환"""
+        return self.table_nicknames.get(table_id, f"테이블{table_id}")
 
 manager = ConnectionManager()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
-    await manager.connect(websocket)
+    # 기본 테이블 ID (관리자용)으로 0을 사용
+    await manager.connect(websocket, 0)
     try:
         while True:
             data = await websocket.receive_text()
-            await manager.broadcast(f"Message text was: {data}")
+            await manager.broadcast_to_all(f"Message text was: {data}")
     except WebSocketDisconnect:
-        manager.disconnect(websocket)
+        manager.disconnect(websocket, 0)
+
+@app.websocket("/ws/{table_id}")
+async def websocket_chat_endpoint(websocket: WebSocket, table_id: int):
+    await manager.connect(websocket, table_id)
+    try:
+        while True:
+            data = await websocket.receive_text()
+            # 클라이언트에서 ping 메시지 처리
+            if data == "ping":
+                await websocket.send_text("pong")
+            else:
+                # 다른 메시지 처리 (필요시 확장)
+                pass
+    except WebSocketDisconnect:
+        manager.disconnect(websocket, table_id)
 
 @app.post("/update_payment_status")
 async def update_payment_status(
@@ -823,6 +1066,125 @@ async def update_payment_status(
     except Exception as e:
         db.rollback()
         return {"success": False, "error": str(e)}
+
+@app.get("/api/menu-data")
+async def get_menu_data_api(db: Session = Depends(get_db)):
+    """채팅 주문용 메뉴 데이터 API"""
+    try:
+        menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
+        return {
+            "menu_items": menu_item_details_for_js,
+            "menu_names": menu_names_by_id,
+            "categories": category_display_names
+        }
+    except Exception as e:
+        print(f"Error in get_menu_data_api: {str(e)}")
+        raise HTTPException(status_code=500, detail="Failed to load menu data")
+
+@app.post("/chat/gift-order")
+async def create_gift_order(
+    request: GiftOrderRequest,
+    db: Session = Depends(get_db)
+):
+    """다른 테이블에 주문하기 (선물 주문)"""
+    try:
+        print(f"Received gift order - from: {request.from_table_id}, to: {request.to_table_id}, menu: {request.menu}")
+        
+        # 메뉴 데이터 가져오기
+        menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
+        
+        # 주문 금액 계산 및 메뉴 유효성 검사
+        total_amount = 0
+        valid_order_items = {}
+        
+        for item_id, quantity in request.menu.items():
+            try:
+                quantity = int(quantity)
+                if quantity <= 0:
+                    continue
+                    
+                item = menu_item_details_for_js.get(str(item_id))
+                if not item or not item['is_active']:
+                    continue
+                
+                item_total = item['price'] * quantity
+                total_amount += item_total
+                valid_order_items[item_id] = quantity
+                
+            except (ValueError, TypeError) as e:
+                print(f"Error processing item {item_id}: {str(e)}")
+                continue
+        
+        if not valid_order_items:
+            raise HTTPException(status_code=400, detail="No valid items in order")
+        
+        # 주문 생성
+        order = Order(
+            table_id=request.to_table_id,  # 받는 테이블
+            menu=valid_order_items,
+            amount=total_amount,
+            payment_status="confirmed"  # 선물 주문은 바로 결제 확인됨
+        )
+        order.confirmed_at = datetime.utcnow()
+        
+        db.add(order)
+        db.commit()
+        db.refresh(order)
+        
+        # 선물한 사람 정보
+        from_nickname = manager.get_nickname(request.from_table_id)
+        to_nickname = manager.get_nickname(request.to_table_id)
+        
+        # WebSocket으로 받는 테이블에 알림
+        gift_notification = {
+            "type": "gift_order",
+            "order_id": order.id,
+            "from_table_id": request.from_table_id,
+            "from_nickname": from_nickname,
+            "to_table_id": request.to_table_id,
+            "amount": total_amount,
+            "menu_items": [
+                f"{menu_names_by_id.get(item_id, '알 수 없는 메뉴')} x {quantity}"
+                for item_id, quantity in valid_order_items.items()
+            ],
+            "message": request.message
+        }
+        
+        # 받는 테이블에 알림
+        await manager.broadcast_to_table(request.to_table_id, json.dumps(gift_notification))
+        
+        # 전체 채팅에도 알림 (선택적)
+        chat_notification = {
+            "type": "gift_announcement",
+            "from_nickname": from_nickname,
+            "to_nickname": to_nickname,
+            "amount": total_amount
+        }
+        await manager.broadcast_to_all(json.dumps(chat_notification))
+        
+        # 관리자/주방에도 알림
+        admin_notification = {
+            "type": "new_order",
+            "order_id": order.id,
+            "table_id": request.to_table_id,
+            "amount": total_amount,
+            "is_gift": True,
+            "from_table_id": request.from_table_id
+        }
+        await manager.broadcast_to_table(0, json.dumps(admin_notification))  # 관리자 테이블
+        
+        return {
+            "success": True,
+            "order_id": order.id,
+            "message": f"{from_nickname}님이 {to_nickname}님에게 주문을 선물했습니다!"
+        }
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"Unexpected error in create_gift_order: {str(e)}")
+        db.rollback()
+        raise HTTPException(status_code=500, detail="Internal server error")
 
 if __name__ == "__main__":
     import uvicorn

@@ -7,7 +7,7 @@
     <div class="col-md-8">
         <div class="d-flex justify-content-between align-items-center mb-4">
             <h2>
-                <i class="bi bi-table me-2"></i>테이블 {{ table_id }}
+                <img src="/static/images/table_n.png" class="header-icon me-2" alt="테이블">테이블 {{ table_id }}
             </h2>
             <a href="/" class="btn btn-outline-primary">
                 <i class="bi bi-house-door me-2"></i>홈으로
@@ -16,18 +16,18 @@
 
         {% for category_key, items_in_category in menu_items_by_category.items() %}
         {% if items_in_category %} {# Only render card if category has items #}
-        <div class="card mb-4 animate-fade-in">
-            <div class="card-header">
+        <div class="card mb-4 animate-fade-in category-{{ category_key }}">
+            <div class="card-header header-{{ category_key }}">
                 <h3 class="mb-0">
                     {# Icon logic based on category_key #}
                     {% if category_key == 'table' %}
-                        <i class="bi bi-people me-2"></i>{{ category_display_names[category_key] }}
+                        <img src="/static/images/table.png" class="header-icon me-2" alt="상차림비">{{ category_display_names[category_key] }}
                     {% elif category_key == 'set_menu' %}
-                        <i class="bi bi-collection me-2"></i>{{ category_display_names[category_key] }}
+                        <img src="/static/images/set.png" class="header-icon me-2" alt="세트메뉴">{{ category_display_names[category_key] }}
                     {% elif category_key == 'drinks' %}
-                        <i class="bi bi-cup-hot me-2"></i>{{ category_display_names[category_key] }}
+                        <img src="/static/images/drink.png" class="header-icon me-2" alt="음료">{{ category_display_names[category_key] }}
                     {% elif category_key == 'main_dishes' %}
-                        <i class="bi bi-egg-fried me-2"></i>{{ category_display_names[category_key] }}
+                        <img src="/static/images/main.png" class="header-icon me-2" alt="메인요리">{{ category_display_names[category_key] }}
                     {% elif category_key == 'side_dishes' %}
                         <i class="bi bi-basket me-2"></i>{{ category_display_names[category_key] }}
                     {% else %}
@@ -64,8 +64,8 @@
                                             <div class="quantity-controls">
                                                 <button type="button" 
                                                         class="quantity-btn" 
-                                                        onclick="updateQuantity('{{ item.id }}', -1)">
-                                                    <i class="bi bi-dash"></i>
+                                                        onclick="updateQuantity('{{ item.id }}', 1)">
+                                                    <i class="bi bi-plus"></i>
                                                 </button>
                                                 <input type="number" 
                                                        id="quantity-{{ item.id }}" 
@@ -75,8 +75,8 @@
                                                        readonly>
                                                 <button type="button" 
                                                         class="quantity-btn" 
-                                                        onclick="updateQuantity('{{ item.id }}', 1)">
-                                                    <i class="bi bi-plus"></i>
+                                                        onclick="updateQuantity('{{ item.id }}', -1)">
+                                                    <i class="bi bi-dash"></i>
                                                 </button>
                                             </div>
                                         </div>
@@ -94,10 +94,10 @@
     </div>
 
     <div class="col-md-4">
-        <div class="card sticky-top" style="top: 20px;">
-            <div class="card-header">
+        <div class="card sticky-top order-summary-card" style="top: 20px;">
+            <div class="card-header header-order-summary">
                 <h3 class="mb-0">
-                    <i class="bi bi-cart me-2"></i>주문 내역
+                    <img src="/static/images/cart.png" class="header-icon me-2" alt="주문내역">주문 내역
                 </h3>
             </div>
             <div class="card-body">

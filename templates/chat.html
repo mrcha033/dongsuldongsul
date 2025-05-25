@@ -1,0 +1,210 @@
+{% extends "base.html" %}
+
+{% block title %}동술동술 채팅{% endblock %}
+
+{% block extra_css %}
+<!-- 채팅 관련 스타일은 style.css에 포함됨 -->
+{% endblock %}
+
+{% block extra_js %}
+<script src="{{ url_for('static', path='/js/chat.js') }}"></script>
+{% endblock %}
+
+{% block content %}
+<div class="container" id="chat-container"{% if table_id %} data-table-id="{{ table_id }}"{% endif %}>
+    <div class="row">
+        <div class="col-12">
+            <h2 class="text-center mb-4">
+                <i class="bi bi-chat-dots me-2"></i>동술동술 채팅방
+            </h2>
+            
+            <!-- 테이블 번호 입력 (URL에 table_id가 없는 경우) -->
+            {% if not table_id %}
+            <div class="welcome-message">
+                <h4>🌟 환영합니다! 🌟</h4>
+                <p>다른 테이블과 대화를 나누어 보세요!</p>
+                <div class="row justify-content-center">
+                    <div class="col-md-6">
+                        <div class="input-group">
+                            <input type="number" id="table-number-input" class="form-control" 
+                                   placeholder="테이블 번호를 입력하세요 (1-50)" min="1" max="50">
+                            <button class="btn btn-primary" onclick="joinChat()">
+                                <i class="bi bi-door-open me-1"></i>입장하기
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            {% else %}
+            
+            <!-- 온라인 사용자 목록 -->
+            <div class="online-users">
+                <div class="d-flex align-items-center justify-content-between mb-2">
+                    <strong><i class="bi bi-people me-1"></i>현재 접속 중인 테이블</strong>
+                    <div>
+                        <small id="online-count">0명</small>
+                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="toggleOrderModal()">
+                            <i class="bi bi-gift me-1"></i>주문하기
+                        </button>
+                    </div>
+                </div>
+                <div id="online-users-list">
+                    <div class="loading">접속자를 확인하는 중...</div>
+                </div>
+            </div>
+            
+            <!-- 채팅 컨테이너 -->
+            <div class="chat-container">
+                <div id="chat-status" class="chat-status" style="display: none;">
+                    연결 중...
+                </div>
+                
+                <div class="chat-messages" id="chat-messages">
+                    <div class="loading">메시지를 불러오는 중...</div>
+                </div>
+                
+                <div class="chat-input-container">
+                    <!-- 닉네임 설정 -->
+                    <div class="row mb-2">
+                        <div class="col-md-6">
+                            <div class="input-group input-group-sm">
+                                <span class="input-group-text">
+                                    <i class="bi bi-person"></i>
+                                </span>
+                                <input type="text" id="nickname-input" class="form-control" 
+                                       placeholder="닉네임 (선택사항)" maxlength="20">
+                            </div>
+                        </div>
+                        <div class="col-md-6">
+                            <small class="text-muted">
+                                현재: <span id="current-table">테이블{{ table_id }}</span>
+                            </small>
+                        </div>
+                    </div>
+                    
+                    <!-- 메시지 입력 -->
+                    <div class="input-group">
+                        <input type="text" id="message-input" class="form-control" 
+                               placeholder="메시지를 입력하세요..." maxlength="500">
+                        <button class="btn btn-primary" id="send-button" onclick="sendMessage()">
+                            <i class="bi bi-send"></i>
+                        </button>
+                    </div>
+                </div>
+            </div>
+            {% endif %}
+        </div>
+    </div>
+</div>
+
+<!-- 주문 모달 -->
+<div class="modal fade" id="orderModal" tabindex="-1" aria-labelledby="orderModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="orderModalLabel">
+                    <i class="bi bi-gift me-2"></i>다른 테이블에 주문하기
+                </h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <!-- 단계 1: 테이블 선택 -->
+                <div id="step-select-table" class="order-step">
+                    <h6 class="mb-3">주문받을 테이블을 선택하세요</h6>
+                    <div class="row" id="table-selection">
+                        <div class="col-12 text-center">
+                            <div class="spinner-border" role="status">
+                                <span class="visually-hidden">테이블 목록 로딩 중...</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 단계 2: 메뉴 선택 -->
+                <div id="step-select-menu" class="order-step" style="display: none;">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <h6 class="mb-0">메뉴 선택</h6>
+                        <span id="selected-table-info" class="text-muted"></span>
+                    </div>
+                    <div id="menu-categories">
+                        <!-- 메뉴 카테고리들이 여기에 동적으로 추가됩니다 -->
+                    </div>
+                    
+                    <!-- 주문 요약 -->
+                    <div class="mt-4">
+                        <h6>주문 요약</h6>
+                        <div id="order-summary" class="border rounded p-3">
+                            <p class="text-muted mb-0">아직 선택된 메뉴가 없습니다.</p>
+                        </div>
+                        <div class="mt-2">
+                            <strong>총 금액: <span id="total-amount">0</span>원</strong>
+                        </div>
+                    </div>
+                </div>
+                
+                <!-- 단계 3: 메시지 입력 -->
+                <div id="step-add-message" class="order-step" style="display: none;">
+                    <h6 class="mb-3">함께 보낼 메시지 (선택사항)</h6>
+                    <div class="mb-3">
+                        <textarea id="order-message" class="form-control" rows="3" 
+                                  placeholder="예: 안녕하세요! 맛있게 드세요 🍻"></textarea>
+                    </div>
+                    <div class="alert alert-info">
+                        <i class="bi bi-info-circle me-2"></i>
+                        선택하신 메뉴를 <strong id="final-table-info"></strong>에게 주문해드립니다.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="previousStep()" id="prev-btn" style="display: none;">
+                    <i class="bi bi-arrow-left me-1"></i>이전
+                </button>
+                <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
+                <button type="button" class="btn btn-primary" onclick="nextStep()" id="next-btn">
+                    다음 <i class="bi bi-arrow-right ms-1"></i>
+                </button>
+                <button type="button" class="btn btn-success" onclick="submitGiftOrder()" id="submit-btn" style="display: none;">
+                    <i class="bi bi-check-circle me-1"></i>주문하기
+                </button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+// 페이지 로드 시 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired');
+    
+    const container = document.getElementById('chat-container');
+    console.log('Chat container element:', container);
+    
+    if (!container) {
+        console.error('Chat container element not found');
+        return;
+    }
+    
+    const hasTableIdAttr = container.hasAttribute('data-table-id');
+    console.log('Has data-table-id attribute:', hasTableIdAttr);
+    
+    if (hasTableIdAttr) {
+        const tableId = container.getAttribute('data-table-id');
+        console.log('Table ID from data attribute:', tableId);
+        console.log('Table ID type:', typeof tableId);
+        console.log('Table ID length:', tableId ? tableId.length : 'N/A');
+        
+        if (tableId && tableId.trim() !== '') {
+            console.log('Calling initializeChat with table ID:', tableId);
+            // 테이블 ID가 있는 경우 채팅 초기화
+            initializeChat(tableId);
+        } else {
+            console.error('data-table-id attribute exists but is empty');
+        }
+    } else {
+        console.log('No data-table-id attribute found, calling initializeTableInput');
+        // 테이블 ID가 없는 경우 입력 폼 초기화
+        initializeTableInput();
+    }
+});
+</script>
+{% endblock %}

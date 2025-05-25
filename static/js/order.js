@@ -3,12 +3,23 @@ const menuDataElement = document.getElementById('menu-data');
 const menuItems = JSON.parse(menuDataElement.dataset.menu);
 const tableId = document.getElementById('table-data').dataset.tableId;
 
+console.log('Loaded menuItems structure:', menuItems);
+
 let orderItems = {};
 
 function updateQuantity(itemId, change) {
+    console.log('updateQuantity called with:', { itemId, change });
+    
     const input = document.getElementById(`quantity-${itemId}`);
-    const currentValue = parseInt(input.value);
+    if (!input) {
+        console.error('Input element not found for itemId:', itemId);
+        return;
+    }
+    
+    const currentValue = parseInt(input.value) || 0;
     const newValue = Math.max(0, currentValue + change);
+    
+    console.log('Quantity update:', { currentValue, change, newValue });
     
     input.value = newValue;
     
@@ -23,15 +34,15 @@ function updateQuantity(itemId, change) {
 }
 
 function findMenuItem(itemId) {
-    // 모든 카테고리를 순회하면서 아이템 찾기
-    for (const category in menuItems) {
-        const items = menuItems[category];
-        const item = items.find(item => item.id == itemId);  // == 사용하여 타입 비교
-        if (item) {
-            console.log('Found menu item:', { itemId, item });
-            return item;
-        }
+    console.log('Searching for itemId:', itemId);
+    
+    // menuItems는 이미 플랫한 구조 (itemId가 키)
+    const item = menuItems[itemId];
+    if (item) {
+        console.log('Found menu item:', { itemId, item });
+        return item;
     }
+    
     console.warn('Menu item not found:', itemId);
     return null;
 }
