@@ -264,6 +264,8 @@ def get_menu_data(db: Session) -> Tuple[Dict[str, Dict[str, Any]], Dict[str, str
             "id": str(item.id),
             "name_kr": item.name_kr,
             "price": item.price,
+            "category": item.category,
+            "description": item.description,
             "is_active": item.is_active
         } for item in active_items
     }

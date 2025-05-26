@@ -680,10 +680,8 @@ function showStep(step) {
 // 메뉴 로드
 async function loadMenuForOrder() {
     try {
-        console.log('Loading menu data...');
         const response = await fetch('/api/menu-data');
         menuData = await response.json();
-        console.log('Menu data loaded:', menuData);
         
         const selectedTable = document.querySelector('.table-card.border-primary h6');
         const selectedTableInfo = document.getElementById('selected-table-info');
@@ -705,7 +703,6 @@ async function loadMenuForOrder() {
 
 // 메뉴 카테고리 렌더링
 function renderMenuCategories() {
-    console.log('Rendering menu categories...');
     const menuCategories = document.getElementById('menu-categories');
     if (!menuCategories) {
         console.error('menu-categories element not found');
@@ -718,10 +715,11 @@ function renderMenuCategories() {
         return;
     }
     
-    const categories = ['main_dishes', 'set_menu', 'drinks'];
+    const categories = ['table', 'set_menu', 'main_dishes', 'drinks'];
     const categoryNames = {
+        'table': '상차림비',
+        'set_menu': '세트 메뉴',
         'main_dishes': '메인 요리',
-        'set_menu': '세트 메뉴', 
         'drinks': '음료'
     };
     
@@ -764,55 +762,47 @@ function renderMenuCategories() {
     setupMenuEventListeners();
 }
 
-// 메뉴 이벤트 리스너 설정
+// 메뉴 이벤트 리스너 설정 (이벤트 위임 방식)
 function setupMenuEventListeners() {
-    console.log('Setting up menu event listeners...');
     const menuCategories = document.getElementById('menu-categories');
     if (!menuCategories) {
         console.error('menu-categories element not found in setupMenuEventListeners');
         return;
     }
     
-    // 메뉴 아이템 클릭 이벤트
-    const menuCards = menuCategories.querySelectorAll('.menu-item-card');
-    console.log('Found menu cards:', menuCards.length);
-    menuCards.forEach(card => {
-        card.addEventListener('click', function() {
-            const itemId = this.dataset.itemId;
-            console.log('Menu card clicked, itemId:', itemId);
-            toggleMenuItem(itemId);
-        });
-    });
+    // 기존 이벤트 리스너 제거
+    menuCategories.removeEventListener('click', handleMenuClick);
     
-    // 수량 조절 버튼 이벤트
-    const minusButtons = menuCategories.querySelectorAll('.quantity-minus');
-    const plusButtons = menuCategories.querySelectorAll('.quantity-plus');
+    // 이벤트 위임을 사용하여 메뉴 클릭 처리
+    menuCategories.addEventListener('click', handleMenuClick);
+}
+
+// 메뉴 클릭 이벤트 핸들러
+function handleMenuClick(e) {
+    const target = e.target;
+    const card = target.closest('.menu-item-card');
+    const minusBtn = target.closest('.quantity-minus');
+    const plusBtn = target.closest('.quantity-plus');
     
-    minusButtons.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const itemId = this.dataset.itemId;
-            changeQuantity(itemId, -1);
-        });
-    });
-    
-    plusButtons.forEach(btn => {
-        btn.addEventListener('click', function(e) {
-            e.stopPropagation();
-            const itemId = this.dataset.itemId;
-            changeQuantity(itemId, 1);
-        });
-    });
+    if (minusBtn) {
+        e.stopPropagation();
+        const itemId = minusBtn.dataset.itemId;
+        changeQuantity(itemId, -1);
+    } else if (plusBtn) {
+        e.stopPropagation();
+        const itemId = plusBtn.dataset.itemId;
+        changeQuantity(itemId, 1);
+    } else if (card) {
+        const itemId = card.dataset.itemId;
+        toggleMenuItem(itemId);
+    }
 }
 
 // 메뉴 아이템 토글
 function toggleMenuItem(itemId) {
-    console.log('toggleMenuItem called with itemId:', itemId);
     const controlsEl = document.getElementById(`controls-${itemId}`);
     const qtyEl = document.getElementById(`qty-${itemId}`);
     const cardEl = document.querySelector(`[data-item-id="${itemId}"]`);
-    
-    console.log('Elements found:', { controlsEl, qtyEl, cardEl });
     
     if (!controlsEl || !qtyEl || !cardEl) {
         console.error('Required elements not found for itemId:', itemId);
@@ -820,19 +810,16 @@ function toggleMenuItem(itemId) {
     }
     
     if (orderItems[itemId]) {
-        console.log('Removing item from order');
         delete orderItems[itemId];
         controlsEl.style.display = 'none';
         cardEl.classList.remove('border-primary');
     } else {
-        console.log('Adding item to order');
         orderItems[itemId] = 1;
         controlsEl.style.display = 'block';
         qtyEl.textContent = '1';
         cardEl.classList.add('border-primary');
     }
     
-    console.log('Current orderItems:', orderItems);
     updateOrderSummary();
 }
 
