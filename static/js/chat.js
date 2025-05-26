@@ -928,19 +928,17 @@ async function submitGiftOrder() {
                 bootstrap.Modal.getInstance(modalEl).hide();
             }
             
-            // 성공 메시지 표시
-            alert(`주문이 성공적으로 완료되었습니다! 🎉\n주문 번호: ${result.order_id}`);
-            
             // 채팅에 주문 알림 메시지 자동 전송
             if (orderMessage) {
-                setTimeout(() => {
-                    const messageInput = document.getElementById('message-input');
-                    if (messageInput) {
-                        messageInput.value = orderMessage;
-                        sendMessage();
-                    }
-                }, 1000);
+                const messageInput = document.getElementById('message-input');
+                if (messageInput) {
+                    messageInput.value = orderMessage;
+                    sendMessage();
+                }
             }
+            
+            // order-success 페이지로 리다이렉트
+            window.location.href = `/order-success/${result.order_id}`;
             
         } else {
             throw new Error('주문 처리 중 오류가 발생했습니다.');

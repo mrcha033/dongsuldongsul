@@ -1193,6 +1193,30 @@ async def get_menu_data_api(db: Session = Depends(get_db)):
         print(f"Error in get_menu_data_api: {str(e)}")
         raise HTTPException(status_code=500, detail="Failed to load menu data")
 
+@app.get("/order-success/{order_id}", response_class=HTMLResponse)
+async def order_success_page(
+    request: Request,
+    order_id: int,
+    db: Session = Depends(get_db)
+):
+    """주문 완료 페이지"""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    # 메뉴 데이터 가져오기
+    menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
+    
+    return templates.TemplateResponse(
+        "order_success.html",
+        {
+            "request": request,
+            "order": order,
+            "table_id": order.table_id,
+            "menu_names": menu_names_by_id
+        }
+    )
+
 @app.post("/chat/gift-order")
 async def create_gift_order(
     request: GiftOrderRequest,

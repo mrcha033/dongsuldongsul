@@ -9,11 +9,24 @@
             <div class="card">
                 <div class="card-body text-center">
                     <i class="bi bi-check-circle-fill text-success display-1 mb-3"></i>
+                    {% if order.payment_status == "confirmed" %}
+                    <h2 class="card-title">🎁 선물 주문이 성공적으로 완료되었습니다!</h2>
+                    <p class="card-text fs-5">받는 테이블: <strong>{{ order.table_id }}</strong></p>
+                    <p class="card-text fs-5">주문 번호: <strong>#{{ order.id }}</strong></p>
+                    <p class="card-text fs-5">주문 시간: <strong>{{ order.created_at|kst if order.created_at else '-' }}</strong></p>
+                    <p class="card-text fs-5">총 금액: <strong>{{ order.amount|format_currency }}원</strong></p>
+                    <div class="alert alert-success mt-3">
+                        <i class="bi bi-gift me-2"></i>
+                        <strong>선물 주문이 완료되었습니다!</strong><br>
+                        받는 테이블에 알림이 전송되었으며, 주방에서 바로 준비를 시작합니다.
+                    </div>
+                    {% else %}
                     <h2 class="card-title">주문이 성공적으로 접수되었습니다!</h2>
                     <p class="card-text fs-5">테이블 번호: <strong>{{ order.table_id }}</strong></p>
                     <p class="card-text fs-5">주문 번호: <strong>#{{ order.id }}</strong></p>
                     <p class="card-text fs-5">주문 시간: <strong>{{ order.created_at|kst if order.created_at else '-' }}</strong></p>
                     <p class="card-text fs-5">총 금액: <strong>{{ order.amount|format_currency }}원</strong></p>
+                    {% endif %}
                     
                     <h4 class="mt-4 mb-3">주문 내역</h4>
                     <div class="order-items mb-4">
@@ -27,6 +40,7 @@
                         </ul>
                     </div>
 
+                    {% if order.payment_status != "confirmed" %}
                     <div class="payment-info mb-4">
                         <h4 class="mb-3">결제 안내</h4>
                         
@@ -54,8 +68,13 @@
                         <h5 class="alert-heading">⚠️ 주의사항</h5>
                         <p class="mb-0">결제 확인이 완료되어야 주문하신 메뉴가 준비됩니다.</p>
                     </div>
+                    {% endif %}
 
+                    {% if order.payment_status == "confirmed" %}
+                    <a href="/chat" class="btn btn-primary">채팅으로 돌아가기</a>
+                    {% else %}
                     <a href="/order?table={{ order.table_id }}" class="btn btn-primary">주문으로 돌아가기</a>
+                    {% endif %}
                 </div>
             </div>
         </div>
