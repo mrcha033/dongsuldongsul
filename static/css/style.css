@@ -1019,6 +1019,7 @@ h2 {
 }
 
 .chat-message.private-message.my-message {
+    border-left: 3px solid var(--info-color);
     background: linear-gradient(135deg, #cce7ff, #e3f2fd);
     color: #4B4B4B;
 }

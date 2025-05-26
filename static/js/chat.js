@@ -680,8 +680,10 @@ function showStep(step) {
 // 메뉴 로드
 async function loadMenuForOrder() {
     try {
+        console.log('Loading menu data...');
         const response = await fetch('/api/menu-data');
         menuData = await response.json();
+        console.log('Menu data loaded:', menuData);
         
         const selectedTable = document.querySelector('.table-card.border-primary h6');
         const selectedTableInfo = document.getElementById('selected-table-info');
@@ -703,10 +705,15 @@ async function loadMenuForOrder() {
 
 // 메뉴 카테고리 렌더링
 function renderMenuCategories() {
+    console.log('Rendering menu categories...');
     const menuCategories = document.getElementById('menu-categories');
-    if (!menuCategories) return;
+    if (!menuCategories) {
+        console.error('menu-categories element not found');
+        return;
+    }
     
     if (!menuData.menu_items) {
+        console.error('No menu items in menuData:', menuData);
         menuCategories.innerHTML = '<div class="alert alert-warning">메뉴 데이터가 없습니다.</div>';
         return;
     }
@@ -759,14 +766,20 @@ function renderMenuCategories() {
 
 // 메뉴 이벤트 리스너 설정
 function setupMenuEventListeners() {
+    console.log('Setting up menu event listeners...');
     const menuCategories = document.getElementById('menu-categories');
-    if (!menuCategories) return;
+    if (!menuCategories) {
+        console.error('menu-categories element not found in setupMenuEventListeners');
+        return;
+    }
     
     // 메뉴 아이템 클릭 이벤트
     const menuCards = menuCategories.querySelectorAll('.menu-item-card');
+    console.log('Found menu cards:', menuCards.length);
     menuCards.forEach(card => {
         card.addEventListener('click', function() {
             const itemId = this.dataset.itemId;
+            console.log('Menu card clicked, itemId:', itemId);
             toggleMenuItem(itemId);
         });
     });
@@ -794,23 +807,32 @@ function setupMenuEventListeners() {
 
 // 메뉴 아이템 토글
 function toggleMenuItem(itemId) {
+    console.log('toggleMenuItem called with itemId:', itemId);
     const controlsEl = document.getElementById(`controls-${itemId}`);
     const qtyEl = document.getElementById(`qty-${itemId}`);
     const cardEl = document.querySelector(`[data-item-id="${itemId}"]`);
     
-    if (!controlsEl || !qtyEl || !cardEl) return;
+    console.log('Elements found:', { controlsEl, qtyEl, cardEl });
+    
+    if (!controlsEl || !qtyEl || !cardEl) {
+        console.error('Required elements not found for itemId:', itemId);
+        return;
+    }
     
     if (orderItems[itemId]) {
+        console.log('Removing item from order');
         delete orderItems[itemId];
         controlsEl.style.display = 'none';
         cardEl.classList.remove('border-primary');
     } else {
+        console.log('Adding item to order');
         orderItems[itemId] = 1;
         controlsEl.style.display = 'block';
         qtyEl.textContent = '1';
         cardEl.classList.add('border-primary');
     }
     
+    console.log('Current orderItems:', orderItems);
     updateOrderSummary();
 }
 
