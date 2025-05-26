@@ -123,12 +123,13 @@ body {
 }
 
 .btn-outline-primary {
-    color: var(--primary-color);
+    background-color: var(--primary-color);
+    color: white;
     border-color: var(--primary-color);
 }
 
 .btn-outline-primary:hover {
-    background-color: var(--primary-color);
+    background-color: var(--danger-color);
     color: white;
     transform: translateY(-2px);
 }
@@ -1018,8 +1019,8 @@ h2 {
 }
 
 .chat-message.private-message.my-message {
-    border-left: 3px solid var(--primary-color);
     background: linear-gradient(135deg, #cce7ff, #e3f2fd);
+    color: #4B4B4B;
 }
 
 /* 개인 메시지 모드 표시 */
