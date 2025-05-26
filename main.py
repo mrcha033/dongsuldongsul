@@ -967,6 +967,24 @@ async def delete_menu_item(
     db.commit()
     return RedirectResponse(url="/admin/menu", status_code=303)
 
+@app.get("/ws-test")
+async def websocket_test():
+    """WebSocket 지원 테스트 엔드포인트"""
+    try:
+        import websockets
+        websockets_available = True
+        websockets_version = getattr(websockets, '__version__', 'unknown')
+    except ImportError:
+        websockets_available = False
+        websockets_version = 'not installed'
+    
+    return {
+        "websocket_support": websockets_available,
+        "websockets_version": websockets_version,
+        "message": "WebSocket endpoints available at /ws and /ws/{table_id}",
+        "online_tables": manager.get_online_tables()
+    }
+
 # WebSocket 연결 관리를 위한 클래스
 class ConnectionManager:
     def __init__(self):
@@ -1093,6 +1111,20 @@ async def websocket_endpoint(websocket: WebSocket):
 @app.websocket("/ws/{table_id}")
 async def websocket_chat_endpoint(websocket: WebSocket, table_id: int):
     print(f"WebSocket connection attempt from {websocket.client} to /ws/{table_id}")
+    
+    # 명시적으로 WebSocket 헤더 확인
+    connection_header = websocket.headers.get("connection", "").lower()
+    upgrade_header = websocket.headers.get("upgrade", "").lower()
+    
+    print(f"Connection header: {connection_header}")
+    print(f"Upgrade header: {upgrade_header}")
+    print(f"WebSocket headers: {dict(websocket.headers)}")
+    
+    if "websocket" not in upgrade_header:
+        print("❌ WebSocket upgrade header missing")
+        await websocket.close(code=1002, reason="WebSocket upgrade required")
+        return
+    
     try:
         await manager.connect(websocket, table_id)
         print(f"WebSocket connected successfully to /ws/{table_id}")
