@@ -1071,17 +1071,28 @@ async def table_order_history(
     
     # 상태별 필터링
     if status == "cooking":
+        # 결제 확인된 주문 중 아이템이 하나라도 조리 중이거나 대기중인 주문
         query = query.filter(
             Order.payment_status == "confirmed",
-            Order.cooking_status.in_(["pending", "cooking"])
-        )
+            Order.is_cancelled == False
+        ).join(OrderItem).filter(
+            OrderItem.cooking_status.in_(["pending", "cooking"])
+        ).distinct()
     elif status == "completed":
+        # 모든 아이템이 완료된 주문
         query = query.filter(
             Order.payment_status == "confirmed",
-            Order.cooking_status == "completed"
+            Order.is_cancelled == False
+        ).outerjoin(OrderItem).group_by(Order.id).having(
+            func.count(OrderItem.id) == func.sum(
+                case((OrderItem.cooking_status == "completed", 1), else_=0)
+            )
         )
     elif status == "pending":
-        query = query.filter(Order.payment_status == "pending")
+        query = query.filter(
+            Order.payment_status == "pending",
+            Order.is_cancelled == False
+        )
     
     # 전체 주문 수 조회
     total_orders = query.count()
