@@ -1000,4 +1000,39 @@ function updateChatModeUI() {
             privateModeIndicator.style.display = 'none';
         }
     }
-} 
+}
+
+// 페이지 로드 시 자동 초기화
+document.addEventListener('DOMContentLoaded', function() {
+    console.log('DOMContentLoaded event fired');
+    
+    const container = document.getElementById('chat-container');
+    console.log('Chat container element:', container);
+    
+    if (!container) {
+        console.error('Chat container element not found');
+        return;
+    }
+    
+    const hasTableIdAttr = container.hasAttribute('data-table-id');
+    console.log('Has data-table-id attribute:', hasTableIdAttr);
+    
+    if (hasTableIdAttr) {
+        const tableId = container.getAttribute('data-table-id');
+        console.log('Table ID from data attribute:', tableId);
+        console.log('Table ID type:', typeof tableId);
+        console.log('Table ID length:', tableId ? tableId.length : 'N/A');
+        
+        if (tableId && tableId.trim() !== '') {
+            console.log('Calling initializeChat with table ID:', tableId);
+            // 테이블 ID가 있는 경우 채팅 초기화
+            initializeChat(tableId);
+        } else {
+            console.error('data-table-id attribute exists but is empty');
+        }
+    } else {
+        console.log('No data-table-id attribute found, calling initializeTableInput');
+        // 테이블 ID가 없는 경우 입력 폼 초기화
+        initializeTableInput();
+    }
+}); 
