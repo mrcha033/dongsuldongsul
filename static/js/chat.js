@@ -105,6 +105,14 @@ function connectWebSocket() {
                 clearInterval(window.messagePollingInterval);
                 window.messagePollingInterval = null;
             }
+            
+            // 하트비트 시작 (30초마다 ping)
+            window.wsHeartbeat = setInterval(() => {
+                if (websocket.readyState === WebSocket.OPEN) {
+                    websocket.send('ping');
+                    console.log('Sent heartbeat ping');
+                }
+            }, 30000);
         };
         
         websocket.onmessage = function(event) {
@@ -120,7 +128,12 @@ function connectWebSocket() {
                     handleGiftAnnouncement(data);
                 }
             } catch (error) {
-                console.error('Error parsing WebSocket message:', error, event.data);
+                // pong 응답 등 JSON이 아닌 메시지 처리
+                if (event.data === 'pong') {
+                    console.log('Received heartbeat pong');
+                } else {
+                    console.error('Error parsing WebSocket message:', error, event.data);
+                }
             }
         };
         
@@ -128,6 +141,12 @@ function connectWebSocket() {
             isConnected = false;
             updateConnectionStatus('disconnected');
             console.log('WebSocket 연결 끊어짐. Code:', event.code, 'Reason:', event.reason);
+            
+            // 하트비트 정리
+            if (window.wsHeartbeat) {
+                clearInterval(window.wsHeartbeat);
+                window.wsHeartbeat = null;
+            }
             
             // WebSocket 실패 시 폴링으로 대체
             startMessagePolling();
@@ -1143,6 +1162,11 @@ window.addEventListener('beforeunload', function() {
     if (window.messagePollingInterval) {
         clearInterval(window.messagePollingInterval);
         window.messagePollingInterval = null;
+    }
+    
+    if (window.wsHeartbeat) {
+        clearInterval(window.wsHeartbeat);
+        window.wsHeartbeat = null;
     }
 });
 

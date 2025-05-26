@@ -972,36 +972,79 @@ class ConnectionManager:
     def __init__(self):
         self.active_connections: Dict[int, List[WebSocket]] = {}  # table_id: [websockets]
         self.table_nicknames: Dict[int, str] = {}  # table_id: nickname
+        print("ConnectionManager initialized")
 
     async def connect(self, websocket: WebSocket, table_id: int):
-        await websocket.accept()
-        if table_id not in self.active_connections:
-            self.active_connections[table_id] = []
-        self.active_connections[table_id].append(websocket)
+        print(f"Attempting to accept WebSocket connection for table {table_id}")
+        try:
+            await websocket.accept()
+            print(f"WebSocket accepted for table {table_id}")
+            if table_id not in self.active_connections:
+                self.active_connections[table_id] = []
+            self.active_connections[table_id].append(websocket)
+            print(f"WebSocket added to active connections. Table {table_id} now has {len(self.active_connections[table_id])} connections")
+            print(f"Total tables connected: {len(self.active_connections)}")
+        except Exception as e:
+            print(f"Failed to accept WebSocket for table {table_id}: {str(e)}")
+            raise
 
     def disconnect(self, websocket: WebSocket, table_id: int):
-        if table_id in self.active_connections:
-            self.active_connections[table_id].remove(websocket)
-            if not self.active_connections[table_id]:
-                del self.active_connections[table_id]
+        print(f"Disconnecting WebSocket for table {table_id}")
+        try:
+            if table_id in self.active_connections:
+                if websocket in self.active_connections[table_id]:
+                    self.active_connections[table_id].remove(websocket)
+                    print(f"WebSocket removed from table {table_id}. Remaining connections: {len(self.active_connections[table_id])}")
+                if not self.active_connections[table_id]:
+                    del self.active_connections[table_id]
+                    print(f"Table {table_id} removed from active connections (no connections left)")
+            print(f"Total tables connected: {len(self.active_connections)}")
+        except Exception as e:
+            print(f"Error disconnecting WebSocket for table {table_id}: {str(e)}")
 
     async def broadcast_to_all(self, message: str):
         """모든 연결된 클라이언트에게 메시지 전송"""
-        for table_connections in self.active_connections.values():
-            for connection in table_connections:
+        print(f"Broadcasting to all: {message}")
+        dead_connections = []
+        total_sent = 0
+        
+        for table_id, connections in self.active_connections.items():
+            for connection in connections[:]:  # 복사본 사용
                 try:
                     await connection.send_text(message)
-                except:
-                    pass  # 연결이 끊어진 경우 무시
+                    total_sent += 1
+                except Exception as e:
+                    print(f"Failed to send to table {table_id}: {str(e)}")
+                    dead_connections.append((table_id, connection))
+        
+        # 죽은 연결 제거
+        for table_id, connection in dead_connections:
+            self.disconnect(connection, table_id)
+        
+        print(f"Message sent to {total_sent} connections")
 
     async def broadcast_to_table(self, table_id: int, message: str):
         """특정 테이블에게만 메시지 전송"""
+        print(f"Broadcasting to table {table_id}: {message}")
         if table_id in self.active_connections:
-            for connection in self.active_connections[table_id]:
+            dead_connections = []
+            sent_count = 0
+            
+            for connection in self.active_connections[table_id][:]:  # 복사본 사용
                 try:
                     await connection.send_text(message)
-                except:
-                    pass
+                    sent_count += 1
+                except Exception as e:
+                    print(f"Failed to send to table {table_id}: {str(e)}")
+                    dead_connections.append(connection)
+            
+            # 죽은 연결 제거
+            for connection in dead_connections:
+                self.disconnect(connection, table_id)
+            
+            print(f"Message sent to {sent_count} connections for table {table_id}")
+        else:
+            print(f"Table {table_id} not found in active connections")
 
     async def broadcast(self, message: str):
         """기존 호환성을 위한 메서드"""
@@ -1009,43 +1052,69 @@ class ConnectionManager:
 
     def get_online_tables(self) -> List[int]:
         """현재 온라인인 테이블 목록 반환"""
-        return list(self.active_connections.keys())
+        online_tables = list(self.active_connections.keys())
+        print(f"Online tables: {online_tables}")
+        return online_tables
 
     def set_nickname(self, table_id: int, nickname: str):
         """테이블의 닉네임 설정"""
         self.table_nicknames[table_id] = nickname
+        print(f"Set nickname for table {table_id}: {nickname}")
 
     def get_nickname(self, table_id: int) -> str:
         """테이블의 닉네임 반환"""
-        return self.table_nicknames.get(table_id, f"테이블{table_id}")
+        nickname = self.table_nicknames.get(table_id, f"테이블{table_id}")
+        print(f"Get nickname for table {table_id}: {nickname}")
+        return nickname
 
 manager = ConnectionManager()
 
 @app.websocket("/ws")
 async def websocket_endpoint(websocket: WebSocket):
     # 기본 테이블 ID (관리자용)으로 0을 사용
-    await manager.connect(websocket, 0)
+    print(f"WebSocket connection attempt from {websocket.client} to /ws")
     try:
+        await manager.connect(websocket, 0)
+        print(f"WebSocket connected successfully to /ws")
         while True:
             data = await websocket.receive_text()
+            print(f"WebSocket /ws received: {data}")
             await manager.broadcast_to_all(f"Message text was: {data}")
     except WebSocketDisconnect:
+        print(f"WebSocket disconnected from /ws")
         manager.disconnect(websocket, 0)
+    except Exception as e:
+        print(f"WebSocket error on /ws: {str(e)}")
+        try:
+            manager.disconnect(websocket, 0)
+        except:
+            pass
 
 @app.websocket("/ws/{table_id}")
 async def websocket_chat_endpoint(websocket: WebSocket, table_id: int):
-    await manager.connect(websocket, table_id)
+    print(f"WebSocket connection attempt from {websocket.client} to /ws/{table_id}")
     try:
+        await manager.connect(websocket, table_id)
+        print(f"WebSocket connected successfully to /ws/{table_id}")
         while True:
             data = await websocket.receive_text()
+            print(f"WebSocket /ws/{table_id} received: {data}")
             # 클라이언트에서 ping 메시지 처리
             if data == "ping":
                 await websocket.send_text("pong")
+                print(f"Sent pong to table {table_id}")
             else:
                 # 다른 메시지 처리 (필요시 확장)
-                pass
+                print(f"Unknown message from table {table_id}: {data}")
     except WebSocketDisconnect:
+        print(f"WebSocket disconnected from /ws/{table_id}")
         manager.disconnect(websocket, table_id)
+    except Exception as e:
+        print(f"WebSocket error on /ws/{table_id}: {str(e)}")
+        try:
+            manager.disconnect(websocket, table_id)
+        except:
+            pass
 
 @app.post("/update_payment_status")
 async def update_payment_status(
