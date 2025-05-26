@@ -3,9 +3,9 @@ from fastapi.responses import HTMLResponse, RedirectResponse, FileResponse
 from fastapi.templating import Jinja2Templates
 from fastapi.staticfiles import StaticFiles
 from fastapi.security import HTTPBasic, HTTPBasicCredentials
-from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean
+from sqlalchemy import create_engine, Column, Integer, String, DateTime, JSON, Boolean, ForeignKey, Text, func, case
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker, Session
+from sqlalchemy.orm import sessionmaker, Session, relationship
 from datetime import datetime
 import json
 import os
@@ -102,19 +102,44 @@ engine = create_engine(SQLALCHEMY_DATABASE_URL)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 
-# Order 모델 정의
+# Order 모델 정의 (기존 주문 정보 유지)
 class Order(Base):
     __tablename__ = "orders"
 
     id = Column(Integer, primary_key=True, index=True)
     table_id = Column(Integer)
-    menu = Column(JSON)
+    menu = Column(JSON)  # 원본 주문 메뉴 (세트 메뉴 포함)
     amount = Column(Integer)
-    payment_status = Column(String)  # 'pending' or 'confirmed'
-    cooking_status = Column(String, default="pending")  # 'pending', 'cooking', 'completed'
+    payment_status = Column(String)  # 'pending', 'confirmed', 'cancelled'
+    is_cancelled = Column(Boolean, default=False)  # 주문 취소 여부
+    cancelled_at = Column(DateTime, nullable=True)  # 취소 시간
+    cancellation_reason = Column(String, nullable=True)  # 취소 사유
     created_at = Column(DateTime, default=datetime.utcnow)
     confirmed_at = Column(DateTime, nullable=True)
-    completed_at = Column(DateTime, nullable=True)
+    
+    # 관계 설정
+    order_items = relationship("OrderItem", back_populates="order", cascade="all, delete-orphan")
+
+# 개별 메뉴 아이템 주문 관리를 위한 새 모델
+class OrderItem(Base):
+    __tablename__ = "order_items"
+
+    id = Column(Integer, primary_key=True, index=True)
+    order_id = Column(Integer, ForeignKey("orders.id"))
+    menu_item_id = Column(Integer, ForeignKey("menu_items.id"))
+    quantity = Column(Integer)
+    cooking_status = Column(String, default="pending")  # 'pending', 'cooking', 'completed', 'cancelled'
+    is_set_component = Column(Boolean, default=False)  # 세트 메뉴의 구성 요소인지
+    parent_set_name = Column(String, nullable=True)  # 세트 메뉴 이름 (구성 요소인 경우)
+    notes = Column(Text, nullable=True)  # 특별 요청사항
+    started_at = Column(DateTime, nullable=True)  # 조리 시작 시간
+    completed_at = Column(DateTime, nullable=True)  # 완료 시간
+    cancelled_at = Column(DateTime, nullable=True)  # 취소 시간
+    cancellation_reason = Column(String, nullable=True)  # 취소 사유
+    
+    # 관계 설정
+    order = relationship("Order", back_populates="order_items")
+    menu_item = relationship("MenuItem")
 
 class ChatMessage(Base):
     __tablename__ = "chat_messages"
@@ -151,6 +176,90 @@ def get_db():
         yield db
     finally:
         db.close()
+
+# 세트 메뉴 구성 정보 정의
+SET_MENU_COMPONENTS = {
+    "🌟 두근두근 2인 세트": {
+        "숲속 삼겹살": 2,
+        "셰프 프랭클린의 두부김치": 1,
+        "음료": 2,  # 실제로는 특정 음료를 선택하게 할 수 있음
+        "랜덤 뽑기권": 1
+    },
+    "🌟 단짝 4인 세트": {
+        "숲속 삼겹살": 3,
+        "셰프 프랭클린의 두부김치": 1,
+        "너굴의 비밀 레시비 김볶밥": 1,
+        "음료": 4,
+        "랜덤 뽑기권": 2
+    },
+    "🌟 모여봐요 6인 세트": {
+        "숲속 삼겹살": 5,
+        "셰프 프랭클린의 두부김치": 1,
+        "너굴의 비밀 레시비 김볶밥": 1,
+        "둘기가 숨어먹는 콘치즈": 1,
+        "마을 장터 나초": 1,
+        "음료": 6,
+        "랜덤 뽑기권": 4
+    }
+}
+
+def decompose_set_menu(menu_items: Dict[str, int], db: Session) -> List[Dict]:
+    """세트 메뉴를 개별 구성 요소로 분해"""
+    decomposed_items = []
+    
+    # 메뉴 이름으로 ID 매핑 생성
+    menu_name_to_id = {}
+    all_menu_items = db.query(MenuItem).filter(MenuItem.is_active == True).all()
+    for item in all_menu_items:
+        menu_name_to_id[item.name_kr] = item.id
+    
+    for item_id, quantity in menu_items.items():
+        menu_item = db.query(MenuItem).filter(MenuItem.id == int(item_id)).first()
+        if not menu_item:
+            continue
+            
+        if menu_item.name_kr in SET_MENU_COMPONENTS:
+            # 세트 메뉴인 경우 구성 요소로 분해
+            set_components = SET_MENU_COMPONENTS[menu_item.name_kr]
+            for component_name, component_quantity in set_components.items():
+                if component_name == "음료":
+                    # 음료는 기본 음료로 설정 (추후 선택 가능하게 확장 가능)
+                    default_drink_id = menu_name_to_id.get("숲속 바람 사이다")
+                    if default_drink_id:
+                        decomposed_items.append({
+                            "menu_item_id": default_drink_id,
+                            "quantity": component_quantity * quantity,
+                            "is_set_component": True,
+                            "parent_set_name": menu_item.name_kr
+                        })
+                elif component_name == "랜덤 뽑기권":
+                    # 뽑기권은 별도 처리 (실제 메뉴가 아님)
+                    decomposed_items.append({
+                        "menu_item_id": None,  # 특별 아이템
+                        "quantity": component_quantity * quantity,
+                        "is_set_component": True,
+                        "parent_set_name": menu_item.name_kr,
+                        "notes": f"랜덤 뽑기권 {component_quantity * quantity}개"
+                    })
+                else:
+                    component_id = menu_name_to_id.get(component_name)
+                    if component_id:
+                        decomposed_items.append({
+                            "menu_item_id": component_id,
+                            "quantity": component_quantity * quantity,
+                            "is_set_component": True,
+                            "parent_set_name": menu_item.name_kr
+                        })
+        else:
+            # 일반 메뉴인 경우 그대로 추가
+            decomposed_items.append({
+                "menu_item_id": int(item_id),
+                "quantity": quantity,
+                "is_set_component": False,
+                "parent_set_name": None
+            })
+    
+    return decomposed_items
 
 # 초기 메뉴 데이터 생성 함수
 def init_menu_data(db: Session):
@@ -619,18 +728,36 @@ async def submit_order(
         print(f"Final order items: {valid_order_items}")
         print(f"Calculated total amount: {total_amount}")
         
-        # 4. 주문 생성
+        # 4. 주문 생성 및 메뉴 분해
         try:
+            # 기본 주문 생성
             order = Order(
                 table_id=table_id,
-                menu=valid_order_items,
+                menu=valid_order_items,  # 원본 주문 정보 유지
                 amount=total_amount,
                 payment_status="pending"
             )
             db.add(order)
+            db.flush()  # ID 생성을 위해 flush
+            
+            # 세트 메뉴 분해 및 OrderItem 생성
+            decomposed_items = decompose_set_menu(valid_order_items, db)
+            print(f"Decomposed items: {decomposed_items}")
+            
+            for item_data in decomposed_items:
+                order_item = OrderItem(
+                    order_id=order.id,
+                    menu_item_id=item_data["menu_item_id"],
+                    quantity=item_data["quantity"],
+                    is_set_component=item_data["is_set_component"],
+                    parent_set_name=item_data["parent_set_name"],
+                    notes=item_data.get("notes")
+                )
+                db.add(order_item)
+            
             db.commit()
             db.refresh(order)
-            print(f"Created order with ID: {order.id}")
+            print(f"Created order with ID: {order.id} and {len(decomposed_items)} order items")
         except Exception as e:
             print(f"Database error: {str(e)}")
             db.rollback()
@@ -678,20 +805,34 @@ async def admin_orders(
     # 메뉴 데이터 가져오기
     menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
     
-    # 결제 대기 중인 주문
-    pending_orders = db.query(Order).filter(Order.payment_status == "pending").all()
+    # 결제 대기 중인 주문 (취소되지 않은 것만)
+    pending_orders = db.query(Order).filter(
+        Order.payment_status == "pending",
+        Order.is_cancelled == False
+    ).all()
     
-    # 조리 중인 주문
+    # 진행 중인 주문들 (아이템이 하나라도 조리 중이거나 대기중인 주문, 취소되지 않은 것만)
     cooking_orders = db.query(Order).filter(
         Order.payment_status == "confirmed",
-        Order.cooking_status.in_(["pending", "cooking"])
-    ).order_by(Order.confirmed_at.desc()).all()
+        Order.is_cancelled == False
+    ).join(OrderItem).filter(
+        OrderItem.cooking_status.in_(["pending", "cooking"])
+    ).distinct().order_by(Order.confirmed_at.desc()).all()
     
-    # 완료된 주문
+    # 완전히 완료된 주문들 (취소되지 않은 것만)
     completed_orders = db.query(Order).filter(
         Order.payment_status == "confirmed",
-        Order.cooking_status == "completed"
-    ).order_by(Order.completed_at.desc()).limit(10).all()
+        Order.is_cancelled == False
+    ).outerjoin(OrderItem).group_by(Order.id).having(
+        func.count(OrderItem.id) == func.sum(
+            case([(OrderItem.cooking_status == "completed", 1)], else_=0)
+        )
+    ).order_by(Order.confirmed_at.desc()).limit(10).all()
+    
+    # 취소된 주문들 (최근 10개)
+    cancelled_orders = db.query(Order).filter(
+        Order.is_cancelled == True
+    ).order_by(Order.cancelled_at.desc()).limit(10).all()
     
     return templates.TemplateResponse(
         "admin_orders.html",
@@ -700,6 +841,7 @@ async def admin_orders(
             "pending_orders": pending_orders,
             "cooking_orders": cooking_orders,
             "completed_orders": completed_orders,
+            "cancelled_orders": cancelled_orders,
             "username": username,
             "menu_names": menu_names_by_id
         }
@@ -715,11 +857,100 @@ async def confirm_order(
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
+    if order.is_cancelled:
+        raise HTTPException(status_code=400, detail="Cannot confirm a cancelled order")
+    
     order.payment_status = "confirmed"
     order.confirmed_at = datetime.utcnow()
     db.commit()
     
     return RedirectResponse(url="/admin/orders", status_code=303)
+
+@app.post("/admin/orders/cancel/{order_id}")
+async def cancel_order(
+    order_id: int,
+    reason: str = Form(None),
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """전체 주문 취소"""
+    order = db.query(Order).filter(Order.id == order_id).first()
+    if not order:
+        raise HTTPException(status_code=404, detail="Order not found")
+    
+    if order.payment_status == "confirmed":
+        # 결제 완료된 주문은 조리 시작 전에만 취소 가능
+        cooking_items = [item for item in order.order_items if item.cooking_status == "cooking"]
+        if cooking_items:
+            raise HTTPException(status_code=400, detail="Cannot cancel order with items already cooking")
+    
+    # 주문 취소 처리
+    order.is_cancelled = True
+    order.payment_status = "cancelled"
+    order.cancelled_at = datetime.utcnow()
+    order.cancellation_reason = reason or "관리자에 의한 취소"
+    
+    # 모든 주문 아이템 취소 처리
+    for item in order.order_items:
+        if item.cooking_status not in ["completed", "cancelled"]:
+            item.cooking_status = "cancelled"
+            item.cancelled_at = datetime.utcnow()
+            item.cancellation_reason = reason or "주문 취소"
+    
+    db.commit()
+    
+    # WebSocket으로 취소 알림
+    try:
+        await manager.broadcast_to_all(json.dumps({
+            "type": "order_cancelled",
+            "order_id": order.id,
+            "table_id": order.table_id,
+            "reason": order.cancellation_reason
+        }))
+    except Exception as e:
+        print(f"WebSocket notification error: {e}")
+    
+    return RedirectResponse(url="/admin/orders", status_code=303)
+
+@app.post("/kitchen/cancel-item/{item_id}")
+async def cancel_order_item(
+    item_id: int,
+    reason: str = Form(None),
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """개별 주문 아이템 취소"""
+    order_item = db.query(OrderItem).filter(OrderItem.id == item_id).first()
+    if not order_item:
+        raise HTTPException(status_code=404, detail="Order item not found")
+    
+    if order_item.cooking_status == "completed":
+        raise HTTPException(status_code=400, detail="Cannot cancel completed item")
+    
+    if order_item.cooking_status == "cancelled":
+        raise HTTPException(status_code=400, detail="Item is already cancelled")
+    
+    # 아이템 취소 처리
+    order_item.cooking_status = "cancelled"
+    order_item.cancelled_at = datetime.utcnow()
+    order_item.cancellation_reason = reason or "개별 아이템 취소"
+    
+    db.commit()
+    
+    # WebSocket으로 아이템 취소 알림
+    try:
+        await manager.broadcast_to_all(json.dumps({
+            "type": "item_cancelled",
+            "item_id": item_id,
+            "order_id": order_item.order_id,
+            "table_id": order_item.order.table_id,
+            "menu_name": order_item.menu_item.name_kr if order_item.menu_item else "특별 아이템",
+            "reason": order_item.cancellation_reason
+        }))
+    except Exception as e:
+        print(f"WebSocket notification error: {e}")
+    
+    return RedirectResponse(url="/kitchen", status_code=303)
 
 @app.get("/kitchen", response_class=HTMLResponse)
 async def kitchen_display(
@@ -730,34 +961,67 @@ async def kitchen_display(
     # 메뉴 데이터 가져오기
     menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
     
-    # 조리 중인 주문 (결제 확인된 주문)
-    cooking_orders = db.query(Order).filter(
+    # 결제 확인된 주문의 조리 대기/진행 중인 아이템들 (취소되지 않은 것만)
+    cooking_items = db.query(OrderItem).join(Order).filter(
         Order.payment_status == "confirmed",
-        Order.cooking_status.in_(["pending", "cooking"])
+        Order.is_cancelled == False,
+        OrderItem.cooking_status.in_(["pending", "cooking"]),
+        OrderItem.menu_item_id.isnot(None)  # 뽑기권 등 특별 아이템 제외
     ).order_by(Order.confirmed_at.desc()).all()
     
-    # 결제 대기 중인 주문
+    # 결제 대기 중인 주문들 (전체 주문 단위로, 취소되지 않은 것만)
     pending_orders = db.query(Order).filter(
-        Order.payment_status == "pending"
+        Order.payment_status == "pending",
+        Order.is_cancelled == False
     ).order_by(Order.created_at.desc()).all()
     
-    # 완료된 주문
-    completed_orders = db.query(Order).filter(
+    # 완료된 아이템들 (취소되지 않은 주문의 아이템만)
+    completed_items = db.query(OrderItem).join(Order).filter(
         Order.payment_status == "confirmed",
-        Order.cooking_status == "completed"
-    ).order_by(Order.completed_at.desc()).limit(10).all()
+        Order.is_cancelled == False,
+        OrderItem.cooking_status == "completed",
+        OrderItem.menu_item_id.isnot(None)
+    ).order_by(OrderItem.completed_at.desc()).limit(20).all()
+    
+    # 취소된 아이템들 (최근 10개)
+    cancelled_items = db.query(OrderItem).join(Order).filter(
+        OrderItem.cooking_status == "cancelled",
+        OrderItem.menu_item_id.isnot(None)
+    ).order_by(OrderItem.cancelled_at.desc()).limit(10).all()
     
     return templates.TemplateResponse(
         "kitchen.html",
         {
             "request": request,
-            "cooking_orders": cooking_orders,
+            "cooking_items": cooking_items,
             "pending_orders": pending_orders,
-            "completed_orders": completed_orders,
+            "completed_items": completed_items,
+            "cancelled_items": cancelled_items,
             "username": username,
             "menu_names": menu_names_by_id
         }
     )
+
+@app.post("/kitchen/update-item-status/{item_id}")
+async def update_item_cooking_status(
+    item_id: int,
+    status: str = Form(...),
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """개별 메뉴 아이템의 조리 상태 업데이트"""
+    order_item = db.query(OrderItem).filter(OrderItem.id == item_id).first()
+    if not order_item:
+        raise HTTPException(status_code=404, detail="Order item not found")
+    
+    order_item.cooking_status = status
+    if status == "cooking" and not order_item.started_at:
+        order_item.started_at = datetime.utcnow()
+    elif status == "completed":
+        order_item.completed_at = datetime.utcnow()
+    
+    db.commit()
+    return RedirectResponse(url="/kitchen", status_code=303)
 
 @app.post("/kitchen/update-status/{order_id}")
 async def update_cooking_status(
@@ -766,13 +1030,19 @@ async def update_cooking_status(
     db: Session = Depends(get_db),
     username: str = Depends(verify_admin)
 ):
+    """전체 주문의 모든 아이템 상태를 일괄 업데이트 (호환성 유지)"""
     order = db.query(Order).filter(Order.id == order_id).first()
     if not order:
         raise HTTPException(status_code=404, detail="Order not found")
     
-    order.cooking_status = status
-    if status == "completed":
-        order.completed_at = datetime.utcnow()
+    # 주문의 모든 아이템 상태 업데이트
+    for order_item in order.order_items:
+        if order_item.menu_item_id:  # 실제 메뉴 아이템만
+            order_item.cooking_status = status
+            if status == "cooking" and not order_item.started_at:
+                order_item.started_at = datetime.utcnow()
+            elif status == "completed":
+                order_item.completed_at = datetime.utcnow()
     
     db.commit()
     return RedirectResponse(url="/kitchen", status_code=303)
@@ -1265,6 +1535,22 @@ async def create_gift_order(
         )
         
         db.add(order)
+        db.flush()  # ID 생성을 위해 flush
+        
+        # 세트 메뉴 분해 및 OrderItem 생성
+        decomposed_items = decompose_set_menu(valid_order_items, db)
+        
+        for item_data in decomposed_items:
+            order_item = OrderItem(
+                order_id=order.id,
+                menu_item_id=item_data["menu_item_id"],
+                quantity=item_data["quantity"],
+                is_set_component=item_data["is_set_component"],
+                parent_set_name=item_data["parent_set_name"],
+                notes=item_data.get("notes")
+            )
+            db.add(order_item)
+        
         db.commit()
         db.refresh(order)
         

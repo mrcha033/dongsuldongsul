@@ -202,12 +202,8 @@ body {
     font-size: 0.9rem;
     color: var(--dark-color);
     margin-bottom: 0.5rem;
-    display: -webkit-box;
-    -webkit-line-clamp: 2;
-    line-clamp: 2;
-    -webkit-box-orient: vertical;
-    overflow: hidden;
     overflow-wrap: break-word;
+    white-space: pre-wrap;
 }
 
 .menu-card .price {
@@ -1044,4 +1040,6 @@ h2 {
 }
 
 .online-count {
+    font-size: 0.8rem;
+    color: #6E4924;
 }

@@ -37,7 +37,7 @@
 
     <div class="col-md-9">
         <div class="d-flex justify-content-between align-items-center mb-4">
-            <h2>주방 화면</h2>
+            <h2>주방 화면 - 메뉴별 관리</h2>
             <div>
                 <a href="/admin/orders" class="btn btn-outline-primary me-2">
                     <i class="bi bi-arrow-left me-2"></i>주문 관리로
@@ -50,7 +50,7 @@
 
         <div class="row">
             <div class="col-md-8">
-                <!-- 결제 대기 중인 주문 -->
+                <!-- 결제 대기 중인 주문 (전체 주문 단위) -->
                 {% if pending_orders %}
                 <div class="card mb-4">
                     <div class="card-header bg-warning text-white">
@@ -65,8 +65,10 @@
                                     <tr>
                                         <th>테이블</th>
                                         <th>주문 시간</th>
-                                        <th>메뉴</th>
+                                        <th>원본 주문</th>
+                                        <th>분해된 메뉴</th>
                                         <th>금액</th>
+                                        <th>작업</th>
                                     </tr>
                                 </thead>
                                 <tbody>
@@ -77,11 +79,36 @@
                                         <td>
                                             <ul class="list-unstyled mb-0">
                                                 {% for menu_id, quantity in order.menu.items() %}
-                                                <li>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }} x {{ quantity }}</li>
+                                                <li><strong>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }}</strong> x {{ quantity }}</li>
+                                                {% endfor %}
+                                            </ul>
+                                        </td>
+                                        <td>
+                                            <ul class="list-unstyled mb-0 small">
+                                                {% for item in order.order_items %}
+                                                    {% if item.menu_item_id %}
+                                                        <li>
+                                                            {{ item.menu_item.name_kr }} x {{ item.quantity }}
+                                                            {% if item.is_set_component %}
+                                                                <span class="badge bg-info ms-1">{{ item.parent_set_name }}</span>
+                                                            {% endif %}
+                                                        </li>
+                                                    {% else %}
+                                                        <li class="text-muted">{{ item.notes }}</li>
+                                                    {% endif %}
                                                 {% endfor %}
                                             </ul>
                                         </td>
                                         <td>{{ "{:,}".format(order.amount) }}원</td>
+                                        <td>
+                                            <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                    data-item-id="{{ order.id }}" 
+                                                    data-item-name="주문 #{{ order.id }}"
+                                                    data-cancel-type="order"
+                                                    onclick="showCancelModal(this)">
+                                                <i class="bi bi-x-lg"></i> 주문 취소
+                                            </button>
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -91,12 +118,12 @@
                 </div>
                 {% endif %}
 
-                <!-- 조리 중인 주문 -->
-                {% if cooking_orders %}
+                <!-- 조리 중인 개별 메뉴 아이템들 -->
+                {% if cooking_items %}
                 <div class="card mb-4">
                     <div class="card-header bg-primary text-white">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-basket me-2"></i>조리 중
+                            <i class="bi bi-fire me-2"></i>조리 중인 메뉴들
                         </h5>
                     </div>
                     <div class="card-body">
@@ -105,46 +132,71 @@
                                 <thead>
                                     <tr>
                                         <th>테이블</th>
-                                        <th>주문 시간</th>
                                         <th>메뉴</th>
-                                        <th>금액</th>
+                                        <th>수량</th>
+                                        <th>세트 정보</th>
                                         <th>상태</th>
+                                        <th>조리 시간</th>
                                         <th>작업</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for order in cooking_orders %}
-                                    <tr>
-                                        <td>{{ order.table_id }}번</td>
-                                        <td>{{ order.confirmed_at|kst if order.confirmed_at else '-' }}</td>
+                                    {% for item in cooking_items %}
+                                    <tr class="{% if item.cooking_status == 'cooking' %}table-warning{% endif %}">
+                                        <td><strong>{{ item.order.table_id }}번</strong></td>
                                         <td>
-                                            <ul class="list-unstyled mb-0">
-                                                {% for menu_id, quantity in order.menu.items() %}
-                                                <li>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }} x {{ quantity }}</li>
-                                                {% endfor %}
-                                            </ul>
+                                            <strong>{{ item.menu_item.name_kr }}</strong>
+                                            {% if item.notes %}
+                                                <br><small class="text-muted">{{ item.notes }}</small>
+                                            {% endif %}
                                         </td>
-                                        <td>{{ "{:,}".format(order.amount) }}원</td>
+                                        <td><span class="badge bg-secondary">{{ item.quantity }}</span></td>
                                         <td>
-                                            {% if order.cooking_status == 'pending' %}
-                                            <span class="badge bg-warning">대기</span>
-                                            {% elif order.cooking_status == 'cooking' %}
+                                            {% if item.is_set_component %}
+                                                <span class="badge bg-info">{{ item.parent_set_name }}</span>
+                                            {% else %}
+                                                <span class="badge bg-light text-dark">단품</span>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            {% if item.cooking_status == 'pending' %}
+                                            <span class="badge bg-warning">조리 대기</span>
+                                            {% elif item.cooking_status == 'cooking' %}
                                             <span class="badge bg-primary">조리 중</span>
                                             {% endif %}
                                         </td>
                                         <td>
-                                            <form action="/kitchen/update-status/{{ order.id }}" method="post" class="d-inline">
-                                                {% if order.cooking_status == 'pending' %}
-                                                <button type="submit" name="status" value="cooking" class="btn btn-sm btn-primary">
-                                                    조리 시작
-                                                </button>
-                                                {% elif order.cooking_status == 'cooking' %}
-                                                <button type="submit" name="status" value="completed" class="btn btn-sm btn-success">
-                                                    완료
-                                                </button>
-                                                {% endif %}
-                                            </form>
+                                            {% if item.started_at %}
+                                                <small>{{ item.started_at|kst }}</small>
+                                            {% else %}
+                                                <small class="text-muted">미시작</small>
+                                            {% endif %}
                                         </td>
+                                                                                 <td>
+                                             <div class="btn-group" role="group">
+                                                 <form action="/kitchen/update-item-status/{{ item.id }}" method="post" class="d-inline">
+                                                     {% if item.cooking_status == 'pending' %}
+                                                     <button type="submit" name="status" value="cooking" class="btn btn-sm btn-primary">
+                                                         <i class="bi bi-play-fill"></i> 시작
+                                                     </button>
+                                                     {% elif item.cooking_status == 'cooking' %}
+                                                     <button type="submit" name="status" value="completed" class="btn btn-sm btn-success">
+                                                         <i class="bi bi-check-lg"></i> 완료
+                                                     </button>
+                                                     {% endif %}
+                                                 </form>
+                                                 
+                                                 {% if item.cooking_status in ['pending', 'cooking'] %}
+                                                 <button type="button" class="btn btn-sm btn-outline-danger" 
+                                                         data-item-id="{{ item.id }}" 
+                                                         data-item-name="{{ item.menu_item.name_kr }}"
+                                                         data-cancel-type="item"
+                                                         onclick="showCancelModal(this)">
+                                                     <i class="bi bi-x-lg"></i>
+                                                 </button>
+                                                 {% endif %}
+                                             </div>
+                                         </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -154,7 +206,7 @@
                 </div>
                 {% endif %}
 
-                {% if not pending_orders and not cooking_orders %}
+                {% if not pending_orders and not cooking_items %}
                 <div class="alert alert-info">
                     <i class="bi bi-info-circle me-2"></i>현재 처리할 주문이 없습니다.
                 </div>
@@ -166,7 +218,7 @@
                 <div class="card mb-4">
                     <div class="card-header">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-graph-up me-2"></i>주문 현황
+                            <i class="bi bi-graph-up me-2"></i>조리 현황
                         </h5>
                     </div>
                     <div class="card-body">
@@ -176,51 +228,96 @@
                         </div>
                         <div class="d-flex justify-content-between mb-3">
                             <span>조리 대기</span>
-                            <span class="badge bg-warning">{{ cooking_orders|selectattr('cooking_status', 'equalto', 'pending')|list|length }}</span>
+                            <span class="badge bg-warning">{{ cooking_items|selectattr('cooking_status', 'equalto', 'pending')|list|length }}</span>
                         </div>
                         <div class="d-flex justify-content-between mb-3">
                             <span>조리 중</span>
-                            <span class="badge bg-primary">{{ cooking_orders|selectattr('cooking_status', 'equalto', 'cooking')|list|length }}</span>
+                            <span class="badge bg-primary">{{ cooking_items|selectattr('cooking_status', 'equalto', 'cooking')|list|length }}</span>
                         </div>
                         <div class="d-flex justify-content-between">
                             <span>완료</span>
-                            <span class="badge bg-success">{{ completed_orders|length }}</span>
+                            <span class="badge bg-success">{{ completed_items|length }}</span>
                         </div>
                     </div>
                 </div>
 
-                <!-- 완료된 주문 -->
-                {% if completed_orders %}
-                <div class="card">
+                <!-- 최근 완료된 메뉴들 -->
+                {% if completed_items %}
+                <div class="card mb-4">
                     <div class="card-header bg-success text-white">
                         <h5 class="card-title mb-0">
-                            <i class="bi bi-check-circle me-2"></i>완료된 주문
+                            <i class="bi bi-check-circle me-2"></i>최근 완료
                         </h5>
                     </div>
                     <div class="card-body">
                         <div class="table-responsive">
-                            <table class="table">
+                            <table class="table table-sm">
                                 <thead>
                                     <tr>
                                         <th>테이블</th>
-                                        <th>완료 시간</th>
                                         <th>메뉴</th>
-                                        <th>금액</th>
+                                        <th>완료 시간</th>
                                     </tr>
                                 </thead>
                                 <tbody>
-                                    {% for order in completed_orders %}
+                                    {% for item in completed_items[:10] %}
                                     <tr>
-                                        <td>{{ order.table_id }}번</td>
-                                        <td>{{ order.completed_at|kst if order.completed_at else '-' }}</td>
+                                        <td>{{ item.order.table_id }}번</td>
                                         <td>
-                                            <ul class="list-unstyled mb-0">
-                                                {% for menu_id, quantity in order.menu.items() %}
-                                                <li>{{ menu_names.get(menu_id, '알 수 없는 메뉴') }} x {{ quantity }}</li>
-                                                {% endfor %}
-                                            </ul>
+                                            <strong>{{ item.menu_item.name_kr }}</strong>
+                                            <small>x{{ item.quantity }}</small>
+                                            {% if item.is_set_component %}
+                                                <br><small class="text-muted">{{ item.parent_set_name }}</small>
+                                            {% endif %}
                                         </td>
-                                        <td>{{ "{:,}".format(order.amount) }}원</td>
+                                        <td>
+                                            <small>{{ item.completed_at|kst if item.completed_at else '-' }}</small>
+                                        </td>
+                                    </tr>
+                                    {% endfor %}
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+                {% endif %}
+
+                <!-- 취소된 메뉴들 -->
+                {% if cancelled_items %}
+                <div class="card">
+                    <div class="card-header bg-danger text-white">
+                        <h5 class="card-title mb-0">
+                            <i class="bi bi-x-circle me-2"></i>취소된 메뉴
+                        </h5>
+                    </div>
+                    <div class="card-body">
+                        <div class="table-responsive">
+                            <table class="table table-sm">
+                                <thead>
+                                    <tr>
+                                        <th>테이블</th>
+                                        <th>메뉴</th>
+                                        <th>취소 시간</th>
+                                        <th>사유</th>
+                                    </tr>
+                                </thead>
+                                <tbody>
+                                    {% for item in cancelled_items[:10] %}
+                                    <tr>
+                                        <td>{{ item.order.table_id }}번</td>
+                                        <td>
+                                            <strong>{{ item.menu_item.name_kr }}</strong>
+                                            <small>x{{ item.quantity }}</small>
+                                            {% if item.is_set_component %}
+                                                <br><small class="text-muted">{{ item.parent_set_name }}</small>
+                                            {% endif %}
+                                        </td>
+                                        <td>
+                                            <small>{{ item.cancelled_at|kst if item.cancelled_at else '-' }}</small>
+                                        </td>
+                                        <td>
+                                            <small class="text-muted">{{ item.cancellation_reason or '-' }}</small>
+                                        </td>
                                     </tr>
                                     {% endfor %}
                                 </tbody>
@@ -233,4 +330,79 @@
         </div>
     </div>
 </div>
+
+<!-- 취소 확인 모달 -->
+<div class="modal fade" id="cancelModal" tabindex="-1" aria-labelledby="cancelModalLabel" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="cancelModalLabel">취소 확인</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form id="cancelForm" method="post">
+                <div class="modal-body">
+                    <p id="cancelMessage">이 항목을 취소하시겠습니까?</p>
+                    <div class="mb-3">
+                        <label for="cancelReason" class="form-label">취소 사유 (선택사항)</label>
+                        <textarea class="form-control" id="cancelReason" name="reason" rows="3" 
+                                  placeholder="취소 사유를 입력하세요..."></textarea>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">닫기</button>
+                    <button type="submit" class="btn btn-danger">
+                        <i class="bi bi-x-lg"></i> 취소하기
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<script>
+function showCancelModal(button) {
+    const itemId = button.getAttribute('data-item-id');
+    const itemName = button.getAttribute('data-item-name');
+    const cancelType = button.getAttribute('data-cancel-type');
+    
+    const modal = new bootstrap.Modal(document.getElementById('cancelModal'));
+    const form = document.getElementById('cancelForm');
+    const message = document.getElementById('cancelMessage');
+    
+    if (cancelType === 'order') {
+        form.action = `/admin/orders/cancel/${itemId}`;
+        message.textContent = `"${itemName}"을(를) 전체 취소하시겠습니까?`;
+    } else {
+        form.action = `/kitchen/cancel-item/${itemId}`;
+        message.textContent = `"${itemName}"을(를) 취소하시겠습니까?`;
+    }
+    
+    // 이전 값 초기화
+    document.getElementById('cancelReason').value = '';
+    
+    modal.show();
+}
+
+// 실시간 업데이트를 위한 WebSocket 연결 (이미 있는 경우 확장)
+if (typeof window.websocketConnection === 'undefined') {
+    window.websocketConnection = new WebSocket(`ws://${window.location.host}/ws/0`);
+    
+    window.websocketConnection.onmessage = function(event) {
+        const data = JSON.parse(event.data);
+        
+        if (data.type === 'order_cancelled') {
+            // 페이지 새로고침 또는 동적 업데이트
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        } else if (data.type === 'item_cancelled') {
+            // 개별 아이템 취소 알림
+            setTimeout(() => {
+                window.location.reload();
+            }, 1000);
+        }
+    };
+}
+</script>
+
 {% endblock %} 
