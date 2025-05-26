@@ -7,7 +7,7 @@
 {% endblock %}
 
 {% block extra_js %}
-<script src="{{ url_for('static', path='/js/chat.js') }}"></script>
+<script src="/static/js/chat.js?v={{ range(1000, 9999) | random }}"></script>
 {% endblock %}
 
 {% block content %}
