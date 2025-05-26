@@ -16,6 +16,17 @@ primary_region = "hkg"  # Hong Kong region
   min_machines_running = 0
   processes = ["app"]
 
+  [http_service.concurrency]
+    type = "connections"
+    hard_limit = 25
+    soft_limit = 20
+
+  [[http_service.checks]]
+    method = "get"
+    path = "/"
+    interval = "10s"
+    timeout = "2s"
+
 [[vm]]
   cpu_kind = "shared"
   cpus = 1

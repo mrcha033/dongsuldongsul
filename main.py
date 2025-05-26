@@ -390,6 +390,7 @@ async def get_chat_messages(
     table_id: int = None,  # 현재 사용자의 테이블 ID 추가
     limit: int = 50,
     before_id: int = None,
+    after_id: int = None,  # 특정 ID 이후의 메시지만 조회
     db: Session = Depends(get_db)
 ):
     """채팅 메시지 목록 조회 (전체 메시지 + 관련된 개인 메시지)"""
@@ -408,7 +409,15 @@ async def get_chat_messages(
     if before_id:
         query = query.filter(ChatMessage.id < before_id)
     
-    messages = query.order_by(ChatMessage.created_at.desc()).limit(limit).all()
+    if after_id:
+        query = query.filter(ChatMessage.id > after_id)
+    
+    # after_id가 지정된 경우 오름차순, 그렇지 않으면 내림차순
+    if after_id:
+        messages = query.order_by(ChatMessage.created_at.asc()).limit(limit).all()
+    else:
+        messages = query.order_by(ChatMessage.created_at.desc()).limit(limit).all()
+        messages = list(reversed(messages))  # 시간 순으로 정렬
     
     return {
         "messages": [
@@ -422,7 +431,7 @@ async def get_chat_messages(
                 "is_private": not msg.is_global,
                 "target_table_id": msg.target_table_id
             }
-            for msg in reversed(messages)
+            for msg in messages
         ]
     }
 

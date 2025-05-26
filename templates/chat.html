@@ -28,7 +28,7 @@
                         <div class="input-group">
                             <input type="number" id="table-number-input" class="form-control" 
                                    placeholder="테이블 번호를 입력하세요 (1-50)" min="1" max="50">
-                            <button class="btn btn-primary" onclick="joinChat()">
+                            <button class="btn btn-primary" id="join-chat-btn">
                                 <i class="bi bi-door-open me-1"></i>입장하기
                             </button>
                         </div>
@@ -43,7 +43,7 @@
                     <strong><i class="bi bi-people me-1"></i>현재 접속 중인 테이블</strong>
                     <div>
                         <small id="online-count">0명</small>
-                        <button class="btn btn-sm btn-outline-primary ms-2" onclick="toggleOrderModal()">
+                        <button class="btn btn-sm btn-outline-primary ms-2" id="toggle-order-btn">
                             <i class="bi bi-gift me-1"></i>주문하기
                         </button>
                     </div>
@@ -86,7 +86,7 @@
                     <div class="input-group">
                         <input type="text" id="message-input" class="form-control" 
                                placeholder="메시지를 입력하세요..." maxlength="500">
-                        <button class="btn btn-primary" id="send-button" onclick="sendMessage()">
+                        <button class="btn btn-primary" id="send-button">
                             <i class="bi bi-send"></i>
                         </button>
                     </div>
@@ -156,14 +156,14 @@
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" onclick="previousStep()" id="prev-btn" style="display: none;">
+                <button type="button" class="btn btn-secondary" id="prev-btn" style="display: none;">
                     <i class="bi bi-arrow-left me-1"></i>이전
                 </button>
                 <button type="button" class="btn btn-outline-secondary" data-bs-dismiss="modal">취소</button>
-                <button type="button" class="btn btn-primary" onclick="nextStep()" id="next-btn">
+                <button type="button" class="btn btn-primary" id="next-btn">
                     다음 <i class="bi bi-arrow-right ms-1"></i>
                 </button>
-                <button type="button" class="btn btn-success" onclick="submitGiftOrder()" id="submit-btn" style="display: none;">
+                <button type="button" class="btn btn-success" id="submit-btn" style="display: none;">
                     <i class="bi bi-check-circle me-1"></i>주문하기
                 </button>
             </div>

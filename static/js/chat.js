@@ -82,41 +82,110 @@ function initializeTableInput() {
 
 // WebSocket 연결
 function connectWebSocket() {
+    if (!currentTableId) {
+        console.warn('Cannot connect WebSocket: currentTableId is not set');
+        return;
+    }
+    
     const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
     const wsUrl = `${protocol}//${window.location.host}/ws/${currentTableId}`;
     
-    websocket = new WebSocket(wsUrl);
+    console.log('Attempting WebSocket connection to:', wsUrl);
     
-    websocket.onopen = function(event) {
-        isConnected = true;
-        updateConnectionStatus('connected');
-        console.log('WebSocket 연결됨');
-    };
-    
-    websocket.onmessage = function(event) {
-        const data = JSON.parse(event.data);
-        if (data.type === 'chat_message') {
-            addMessageToChat(data);
-        } else if (data.type === 'gift_order') {
-            handleGiftOrderNotification(data);
-        } else if (data.type === 'gift_announcement') {
-            handleGiftAnnouncement(data);
-        }
-    };
-    
-    websocket.onclose = function(event) {
-        isConnected = false;
-        updateConnectionStatus('disconnected');
-        console.log('WebSocket 연결 끊어짐');
+    try {
+        websocket = new WebSocket(wsUrl);
         
-        // 3초 후 재연결 시도
-        setTimeout(connectWebSocket, 3000);
-    };
+        websocket.onopen = function(event) {
+            isConnected = true;
+            updateConnectionStatus('connected');
+            console.log('WebSocket 연결 성공:', wsUrl);
+            
+            // 연결 성공 시 폴링 중지
+            if (window.messagePollingInterval) {
+                clearInterval(window.messagePollingInterval);
+                window.messagePollingInterval = null;
+            }
+        };
+        
+        websocket.onmessage = function(event) {
+            try {
+                const data = JSON.parse(event.data);
+                console.log('WebSocket message received:', data);
+                
+                if (data.type === 'chat_message') {
+                    addMessageToChat(data);
+                } else if (data.type === 'gift_order') {
+                    handleGiftOrderNotification(data);
+                } else if (data.type === 'gift_announcement') {
+                    handleGiftAnnouncement(data);
+                }
+            } catch (error) {
+                console.error('Error parsing WebSocket message:', error, event.data);
+            }
+        };
+        
+        websocket.onclose = function(event) {
+            isConnected = false;
+            updateConnectionStatus('disconnected');
+            console.log('WebSocket 연결 끊어짐. Code:', event.code, 'Reason:', event.reason);
+            
+            // WebSocket 실패 시 폴링으로 대체
+            startMessagePolling();
+            
+            // 5초 후 재연결 시도 (최대 3번)
+            if (!window.wsRetryCount) window.wsRetryCount = 0;
+            if (window.wsRetryCount < 3) {
+                window.wsRetryCount++;
+                console.log(`WebSocket 재연결 시도 ${window.wsRetryCount}/3`);
+                setTimeout(connectWebSocket, 5000);
+            } else {
+                console.log('WebSocket 재연결 포기. 폴링 모드로 전환.');
+                updateConnectionStatus('polling');
+            }
+        };
+        
+        websocket.onerror = function(error) {
+            console.error('WebSocket 오류:', error);
+            console.error('WebSocket state:', websocket.readyState);
+            updateConnectionStatus('error');
+        };
+        
+    } catch (error) {
+        console.error('WebSocket 생성 실패:', error);
+        startMessagePolling();
+    }
+}
+
+// 메시지 폴링 시작 (WebSocket 대안)
+function startMessagePolling() {
+    if (window.messagePollingInterval) {
+        return; // 이미 폴링 중
+    }
     
-    websocket.onerror = function(error) {
-        console.error('WebSocket 오류:', error);
-        updateConnectionStatus('error');
-    };
+    console.log('Starting message polling as WebSocket fallback');
+    
+    let lastMessageId = 0;
+    
+    window.messagePollingInterval = setInterval(async () => {
+        try {
+            const url = `/chat/messages?limit=10${currentTableId ? `&table_id=${currentTableId}` : ''}${lastMessageId ? `&after_id=${lastMessageId}` : ''}`;
+            const response = await fetch(url);
+            
+            if (response.ok) {
+                const data = await response.json();
+                if (data.messages && data.messages.length > 0) {
+                    data.messages.forEach(message => {
+                        if (message.id > lastMessageId) {
+                            addMessageToChat(message);
+                            lastMessageId = message.id;
+                        }
+                    });
+                }
+            }
+        } catch (error) {
+            console.error('Polling error:', error);
+        }
+    }, 3000); // 3초마다 새 메시지 확인
 }
 
 // 연결 상태 업데이트
@@ -137,6 +206,11 @@ function updateConnectionStatus(status) {
             break;
         case 'error':
             statusElement.textContent = '⚠️ 연결 오류';
+            statusElement.style.backgroundColor = 'var(--warning-color)';
+            statusElement.style.display = 'block';
+            break;
+        case 'polling':
+            statusElement.textContent = '❌ 연결 끊어짐 - 폴링 모드 중...';
             statusElement.style.backgroundColor = 'var(--warning-color)';
             statusElement.style.display = 'block';
             break;
@@ -231,12 +305,22 @@ async function loadOnlineUsers() {
                 onlineCount.textContent = '1명 (나만)';
             } else {
                 onlineList.innerHTML = otherTables.map(table => 
-                    `<div class="online-user clickable" data-table-id="${table.table_id}" onclick="startPrivateChat(${table.table_id}, '${table.nickname}')">
+                    `<div class="online-user clickable" data-table-id="${table.table_id}" data-nickname="${table.nickname}">
                         ${table.nickname || `테이블${table.table_id}`}
                         <small class="text-muted ms-1">💬</small>
                     </div>`
                 ).join('');
                 onlineCount.textContent = `${data.online_tables.length}명`;
+                
+                // 클릭 이벤트 리스너 추가
+                const clickableUsers = onlineList.querySelectorAll('.online-user.clickable');
+                clickableUsers.forEach(userEl => {
+                    userEl.addEventListener('click', function() {
+                        const tableId = parseInt(this.dataset.tableId);
+                        const nickname = this.dataset.nickname;
+                        startPrivateChat(tableId, nickname);
+                    });
+                });
             }
         }
     } catch (error) {
@@ -471,7 +555,7 @@ async function loadTablesForOrder() {
         
         tableSelection.innerHTML = otherTables.map(table => `
             <div class="col-md-4 col-sm-6 mb-3">
-                <div class="card table-card" onclick="selectTable(${table.table_id}, '${table.nickname}')" 
+                <div class="card table-card" data-table-id="${table.table_id}" data-nickname="${table.nickname}" 
                      style="cursor: pointer; transition: all 0.3s;">
                     <div class="card-body text-center">
                         <i class="bi bi-person-circle" style="font-size: 2rem; color: var(--primary-color);"></i>
@@ -481,6 +565,16 @@ async function loadTablesForOrder() {
                 </div>
             </div>
         `).join('');
+        
+        // 테이블 선택 이벤트 리스너 추가
+        const tableCards = tableSelection.querySelectorAll('.table-card');
+        tableCards.forEach(card => {
+            card.addEventListener('click', function() {
+                const tableId = parseInt(this.dataset.tableId);
+                const nickname = this.dataset.nickname;
+                selectTable(tableId, nickname, this);
+            });
+        });
         
     } catch (error) {
         console.error('테이블 목록 로드 오류:', error);
@@ -492,7 +586,7 @@ async function loadTablesForOrder() {
 }
 
 // 테이블 선택
-function selectTable(tableId, nickname) {
+function selectTable(tableId, nickname, cardElement) {
     selectedTableId = tableId;
     
     // 모든 테이블 카드에서 선택 상태 제거
@@ -502,8 +596,8 @@ function selectTable(tableId, nickname) {
     });
     
     // 선택된 테이블 카드 하이라이트
-    event.currentTarget.classList.add('border-primary');
-    event.currentTarget.style.backgroundColor = 'var(--light-color)';
+    cardElement.classList.add('border-primary');
+    cardElement.style.backgroundColor = 'var(--light-color)';
     
     // 다음 버튼 활성화
     const nextBtn = document.getElementById('next-btn');
@@ -615,7 +709,7 @@ function renderMenuCategories() {
                 <div class="row">
                     ${items.map(item => `
                         <div class="col-md-6 mb-2">
-                            <div class="card menu-item-card" style="cursor: pointer;" onclick="toggleMenuItem('${item.id}')">
+                            <div class="card menu-item-card" data-item-id="${item.id}" style="cursor: pointer;">
                                 <div class="card-body p-3">
                                     <div class="d-flex justify-content-between align-items-start">
                                         <div>
@@ -626,9 +720,9 @@ function renderMenuCategories() {
                                             </div>
                                         </div>
                                         <div class="quantity-controls" id="controls-${item.id}" style="display: none;">
-                                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); changeQuantity('${item.id}', -1)">-</button>
+                                            <button class="btn btn-sm btn-outline-primary quantity-minus" data-item-id="${item.id}">-</button>
                                             <span class="mx-2" id="qty-${item.id}">1</span>
-                                            <button class="btn btn-sm btn-outline-primary" onclick="event.stopPropagation(); changeQuantity('${item.id}', 1)">+</button>
+                                            <button class="btn btn-sm btn-outline-primary quantity-plus" data-item-id="${item.id}">+</button>
                                         </div>
                                     </div>
                                 </div>
@@ -639,13 +733,51 @@ function renderMenuCategories() {
             </div>
         `;
     }).join('');
+    
+    // 메뉴 아이템 이벤트 리스너 추가
+    setupMenuEventListeners();
+}
+
+// 메뉴 이벤트 리스너 설정
+function setupMenuEventListeners() {
+    const menuCategories = document.getElementById('menu-categories');
+    if (!menuCategories) return;
+    
+    // 메뉴 아이템 클릭 이벤트
+    const menuCards = menuCategories.querySelectorAll('.menu-item-card');
+    menuCards.forEach(card => {
+        card.addEventListener('click', function() {
+            const itemId = this.dataset.itemId;
+            toggleMenuItem(itemId);
+        });
+    });
+    
+    // 수량 조절 버튼 이벤트
+    const minusButtons = menuCategories.querySelectorAll('.quantity-minus');
+    const plusButtons = menuCategories.querySelectorAll('.quantity-plus');
+    
+    minusButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const itemId = this.dataset.itemId;
+            changeQuantity(itemId, -1);
+        });
+    });
+    
+    plusButtons.forEach(btn => {
+        btn.addEventListener('click', function(e) {
+            e.stopPropagation();
+            const itemId = this.dataset.itemId;
+            changeQuantity(itemId, 1);
+        });
+    });
 }
 
 // 메뉴 아이템 토글
 function toggleMenuItem(itemId) {
     const controlsEl = document.getElementById(`controls-${itemId}`);
     const qtyEl = document.getElementById(`qty-${itemId}`);
-    const cardEl = document.querySelector(`[onclick="toggleMenuItem('${itemId}')"]`);
+    const cardEl = document.querySelector(`[data-item-id="${itemId}"]`);
     
     if (!controlsEl || !qtyEl || !cardEl) return;
     
@@ -669,7 +801,7 @@ function changeQuantity(itemId, change) {
     
     const controlsEl = document.getElementById(`controls-${itemId}`);
     const qtyEl = document.getElementById(`qty-${itemId}`);
-    const cardEl = document.querySelector(`[onclick="toggleMenuItem('${itemId}')"]`);
+    const cardEl = document.querySelector(`[data-item-id="${itemId}"]`);
     
     if (!controlsEl || !qtyEl || !cardEl) return;
     
@@ -1002,6 +1134,18 @@ function updateChatModeUI() {
     }
 }
 
+// 페이지 종료 시 정리
+window.addEventListener('beforeunload', function() {
+    if (websocket && websocket.readyState === WebSocket.OPEN) {
+        websocket.close();
+    }
+    
+    if (window.messagePollingInterval) {
+        clearInterval(window.messagePollingInterval);
+        window.messagePollingInterval = null;
+    }
+});
+
 // 페이지 로드 시 자동 초기화
 document.addEventListener('DOMContentLoaded', function() {
     console.log('DOMContentLoaded event fired');
@@ -1013,6 +1157,9 @@ document.addEventListener('DOMContentLoaded', function() {
         console.error('Chat container element not found');
         return;
     }
+    
+    // 이벤트 리스너 추가
+    setupEventListeners();
     
     const hasTableIdAttr = container.hasAttribute('data-table-id');
     console.log('Has data-table-id attribute:', hasTableIdAttr);
@@ -1035,4 +1182,49 @@ document.addEventListener('DOMContentLoaded', function() {
         // 테이블 ID가 없는 경우 입력 폼 초기화
         initializeTableInput();
     }
-}); 
+});
+
+// 이벤트 리스너 설정
+function setupEventListeners() {
+    console.log('Setting up event listeners');
+    
+    // 채팅 입장 버튼
+    const joinChatBtn = document.getElementById('join-chat-btn');
+    if (joinChatBtn) {
+        joinChatBtn.addEventListener('click', joinChat);
+        console.log('Join chat button event listener added');
+    }
+    
+    // 메시지 전송 버튼
+    const sendButton = document.getElementById('send-button');
+    if (sendButton) {
+        sendButton.addEventListener('click', sendMessage);
+        console.log('Send message button event listener added');
+    }
+    
+    // 주문 모달 토글 버튼
+    const toggleOrderBtn = document.getElementById('toggle-order-btn');
+    if (toggleOrderBtn) {
+        toggleOrderBtn.addEventListener('click', toggleOrderModal);
+        console.log('Toggle order modal button event listener added');
+    }
+    
+    // 모달 네비게이션 버튼들
+    const prevBtn = document.getElementById('prev-btn');
+    if (prevBtn) {
+        prevBtn.addEventListener('click', previousStep);
+        console.log('Previous step button event listener added');
+    }
+    
+    const nextBtn = document.getElementById('next-btn');
+    if (nextBtn) {
+        nextBtn.addEventListener('click', nextStep);
+        console.log('Next step button event listener added');
+    }
+    
+    const submitBtn = document.getElementById('submit-btn');
+    if (submitBtn) {
+        submitBtn.addEventListener('click', submitGiftOrder);
+        console.log('Submit order button event listener added');
+    }
+} 
