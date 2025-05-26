@@ -937,8 +937,8 @@ async function submitGiftOrder() {
                 }
             }
             
-            // order-success 페이지로 리다이렉트
-            window.location.href = `/order-success/${result.order_id}`;
+            // order-success 페이지로 리다이렉트 (선물 주문 표시)
+            window.location.href = `/order-success/${result.order_id}?gift=true`;
             
         } else {
             throw new Error('주문 처리 중 오류가 발생했습니다.');

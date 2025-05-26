@@ -1197,6 +1197,7 @@ async def get_menu_data_api(db: Session = Depends(get_db)):
 async def order_success_page(
     request: Request,
     order_id: int,
+    gift: bool = False,
     db: Session = Depends(get_db)
 ):
     """주문 완료 페이지"""
@@ -1213,7 +1214,8 @@ async def order_success_page(
             "request": request,
             "order": order,
             "table_id": order.table_id,
-            "menu_names": menu_names_by_id
+            "menu_names": menu_names_by_id,
+            "is_gift_order": gift
         }
     )
 
@@ -1259,9 +1261,8 @@ async def create_gift_order(
             table_id=request.to_table_id,  # 받는 테이블
             menu=valid_order_items,
             amount=total_amount,
-            payment_status="confirmed"  # 선물 주문은 바로 결제 확인됨
+            payment_status="pending"  # 선물 주문도 결제 대기 상태로 시작
         )
-        order.confirmed_at = datetime.utcnow()
         
         db.add(order)
         db.commit()
