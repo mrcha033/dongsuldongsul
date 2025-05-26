@@ -825,7 +825,7 @@ async def admin_orders(
         Order.is_cancelled == False
     ).outerjoin(OrderItem).group_by(Order.id).having(
         func.count(OrderItem.id) == func.sum(
-            case([(OrderItem.cooking_status == "completed", 1)], else_=0)
+            case((OrderItem.cooking_status == "completed", 1), else_=0)
         )
     ).order_by(Order.confirmed_at.desc()).limit(10).all()
     
