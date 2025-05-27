@@ -66,7 +66,7 @@
                                         <th>테이블</th>
                                         <th>주문 시간</th>
                                         <th>원본 주문</th>
-                                        <th>분해된 메뉴</th>
+                                        <th>개별 메뉴</th>
                                         <th>금액</th>
                                         <th>작업</th>
                                     </tr>
@@ -88,7 +88,7 @@
                                                 {% for item in order.order_items %}
                                                     {% if item.menu_item_id %}
                                                         <li>
-                                                            {{ item.menu_item.name_kr }} x {{ item.quantity }}
+                                                            {{ item.menu_item.name_kr|simplify_menu }} x {{ item.quantity }}
                                                             {% if item.is_set_component %}
                                                                 <span class="badge bg-info ms-1">{{ item.parent_set_name }}</span>
                                                             {% endif %}
@@ -145,7 +145,7 @@
                                     <tr class="{% if item.cooking_status == 'cooking' %}table-warning{% endif %}">
                                         <td><strong>{{ item.order.table_id }}번</strong></td>
                                         <td>
-                                            <strong>{{ item.menu_item.name_kr }}</strong>
+                                            <strong>{{ item.menu_item.name_kr|simplify_menu }}</strong>
                                             {% if item.notes %}
                                                 <br><small class="text-muted">{{ item.notes }}</small>
                                             {% endif %}
@@ -189,7 +189,7 @@
                                                  {% if item.cooking_status in ['pending', 'cooking'] %}
                                                  <button type="button" class="btn btn-sm btn-outline-danger" 
                                                          data-item-id="{{ item.id }}" 
-                                                         data-item-name="{{ item.menu_item.name_kr }}"
+                                                         data-item-name="{{ item.menu_item.name_kr|simplify_menu }}"
                                                          data-cancel-type="item"
                                                          onclick="showCancelModal(this)">
                                                      <i class="bi bi-x-lg"></i>
@@ -264,7 +264,7 @@
                                     <tr>
                                         <td>{{ item.order.table_id }}번</td>
                                         <td>
-                                            <strong>{{ item.menu_item.name_kr }}</strong>
+                                            <strong>{{ item.menu_item.name_kr|simplify_menu }}</strong>
                                             <small>x{{ item.quantity }}</small>
                                             {% if item.is_set_component %}
                                                 <br><small class="text-muted">{{ item.parent_set_name }}</small>
@@ -306,7 +306,7 @@
                                     <tr>
                                         <td>{{ item.order.table_id }}번</td>
                                         <td>
-                                            <strong>{{ item.menu_item.name_kr }}</strong>
+                                            <strong>{{ item.menu_item.name_kr|simplify_menu }}</strong>
                                             <small>x{{ item.quantity }}</small>
                                             {% if item.is_set_component %}
                                                 <br><small class="text-muted">{{ item.parent_set_name }}</small>
@@ -385,7 +385,8 @@ function showCancelModal(button) {
 
 // 실시간 업데이트를 위한 WebSocket 연결 (이미 있는 경우 확장)
 if (typeof window.websocketConnection === 'undefined') {
-    window.websocketConnection = new WebSocket(`ws://${window.location.host}/ws/0`);
+    const wsProtocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+    window.websocketConnection = new WebSocket(`${wsProtocol}//${window.location.host}/ws/0`);
     
     window.websocketConnection.onmessage = function(event) {
         const data = JSON.parse(event.data);

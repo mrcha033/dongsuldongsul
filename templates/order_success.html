@@ -42,22 +42,45 @@
 
                     <div class="payment-info mb-4">
                         <h4 class="mb-3">결제 안내</h4>
-                        
-                        <!-- QR 코드 섹션 -->
-                        <div class="qr-section mb-4">
-                            <h5>토스 QR코드로 결제</h5>
-                            <div class="qr-code-container mb-2">
-                                <img src="/static/qr/toss_qr.png" alt="토스 QR코드" class="img-fluid" style="max-width: 200px;">
-                            </div>
-                            <p class="text-muted small">토스 앱으로 테이블에 있는 QR코드를 스캔하여 결제해주세요</p>
-                        </div>
 
                         <!-- 수기 송금 안내 섹션 -->
                         <div class="manual-transfer-section">
                             <h5>계좌이체로 결제</h5>
                             <div class="transfer-info p-3 bg-light rounded">
-                                <p class="mb-2">계좌번호: <strong>국민은행 123456-78-901234</strong></p>
-                                <p class="mb-2">예금주: 동술동술</p>
+                                <p class="mb-2">
+                                    계좌번호: 
+                                    <strong id="account-number" style="cursor:pointer;" onclick="copyAccountNumber()" title="클릭하면 복사됩니다">
+                                        토스뱅크 1001-9242-9914
+                                        <span class="ms-1 text-secondary" style="font-size:0.95em;">(터치해서 복사)</span>
+                                    </strong>
+                                    <span id="copy-success" class="text-success ms-2" style="display:none;">복사됨!</span>
+                                </p>
+                                <p class="mb-2">예금주: 유진</p>
+                                <script>
+                                    function copyAccountNumber() {
+                                        const account = "토스뱅크 1001-9242-9914";
+                                        if (navigator.clipboard) {
+                                            navigator.clipboard.writeText(account).then(function() {
+                                                document.getElementById('copy-success').style.display = 'inline';
+                                                setTimeout(function() {
+                                                    document.getElementById('copy-success').style.display = 'none';
+                                                }, 1200);
+                                            });
+                                        } else {
+                                            // fallback for old browsers
+                                            const temp = document.createElement('input');
+                                            temp.value = account;
+                                            document.body.appendChild(temp);
+                                            temp.select();
+                                            document.execCommand('copy');
+                                            document.body.removeChild(temp);
+                                            document.getElementById('copy-success').style.display = 'inline';
+                                            setTimeout(function() {
+                                                document.getElementById('copy-success').style.display = 'none';
+                                            }, 1200);
+                                        }
+                                    }
+                                </script>
                                 {% if is_gift_order %}
                                 <p class="mb-0 text-danger">💬 <strong>메모에 꼭 "선물주문#{{ order.id }}" 입력</strong></p>
                                 {% else %}

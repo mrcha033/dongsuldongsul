@@ -68,8 +68,51 @@ def format_currency(value):
     """숫자를 통화 형식으로 포맷팅 (예: 1,234,567)"""
     return "{:,}".format(int(value))
 
+def simplify_menu_name(name):
+    """주방용으로 메뉴 이름을 간결하게 만들기"""
+    if not name:
+        return name
+    
+    # 간결화 규칙들
+    replacements = {
+        "부엉의 에너지 드링크": "에너지 드링크",
+        "너굴 장터 콜라": "콜라",
+        "숲속 바람 사이다": "사이다",
+        "숲속 삼겹살": "삼겹살",
+        "너굴의 비밀 레시비 김볶밥": "김치볶음밥",
+        "셰프 프랭클린의 두부김치": "두부김치",
+        "둘기가 숨어먹는 콘치즈": "콘치즈",
+        "마을 장터 나초": "나초",
+    }
+    
+    # 정확한 매칭 먼저 확인
+    if name in replacements:
+        return replacements[name]
+    
+    # 패턴 기반 간결화
+    simplified = name
+    
+    # "OOO의" 패턴 제거
+    import re
+    simplified = re.sub(r'^.+의\s*', '', simplified)
+    
+    # "OOO 장터" 패턴에서 "장터" 제거
+    simplified = re.sub(r'\s*장터\s*', ' ', simplified)
+    
+    # "숲속" 제거
+    simplified = simplified.replace('숲속 ', '')
+    
+    # "마을" 제거
+    simplified = simplified.replace('마을 ', '')
+    
+    # 여러 공백을 하나로
+    simplified = re.sub(r'\s+', ' ', simplified).strip()
+    
+    return simplified
+
 templates.env.filters["format_currency"] = format_currency
 templates.env.filters["kst"] = to_kst_filter # Register the new KST filter
+templates.env.filters["simplify_menu"] = simplify_menu_name # Register the menu simplifier filter
 
 # 관리자 인증 설정
 security = HTTPBasic()
@@ -745,10 +788,26 @@ async def submit_order(
             print(f"Decomposed items: {decomposed_items}")
             
             for item_data in decomposed_items:
+                # 특별 아이템 (menu_item_id가 None인 경우) 또는 상차림비는 자동으로 완료 처리
+                if item_data["menu_item_id"] is None:
+                    cooking_status = "completed"
+                    completed_at = datetime.utcnow()
+                else:
+                    # 상차림비인지 확인 (menu_item_id가 1)
+                    menu_item = db.query(MenuItem).filter(MenuItem.id == item_data["menu_item_id"]).first()
+                    if menu_item and menu_item.category == "table":
+                        cooking_status = "completed"
+                        completed_at = datetime.utcnow()
+                    else:
+                        cooking_status = "pending"
+                        completed_at = None
+                
                 order_item = OrderItem(
                     order_id=order.id,
                     menu_item_id=item_data["menu_item_id"],
                     quantity=item_data["quantity"],
+                    cooking_status=cooking_status,
+                    completed_at=completed_at,
                     is_set_component=item_data["is_set_component"],
                     parent_set_name=item_data["parent_set_name"],
                     notes=item_data.get("notes")
@@ -811,22 +870,24 @@ async def admin_orders(
         Order.is_cancelled == False
     ).all()
     
-    # 진행 중인 주문들 (아이템이 하나라도 조리 중이거나 대기중인 주문, 취소되지 않은 것만)
+    # 진행 중인 주문들 (조리가 필요한 아이템이 하나라도 조리 중이거나 대기중인 주문, 취소되지 않은 것만)
     cooking_orders = db.query(Order).filter(
         Order.payment_status == "confirmed",
         Order.is_cancelled == False
-    ).join(OrderItem).filter(
-        OrderItem.cooking_status.in_(["pending", "cooking"])
+    ).join(OrderItem).join(MenuItem).filter(
+        OrderItem.cooking_status.in_(["pending", "cooking"]),
+        MenuItem.category != "table"  # 상차림비 제외
     ).distinct().order_by(Order.confirmed_at.desc()).all()
     
-    # 완전히 완료된 주문들 (취소되지 않은 것만)
+    # 완전히 완료된 주문들 (실제 조리가 필요한 아이템들이 모두 완료된 주문)
     completed_orders = db.query(Order).filter(
         Order.payment_status == "confirmed",
         Order.is_cancelled == False
-    ).outerjoin(OrderItem).group_by(Order.id).having(
-        func.count(OrderItem.id) == func.sum(
-            case((OrderItem.cooking_status == "completed", 1), else_=0)
-        )
+    ).outerjoin(OrderItem).outerjoin(MenuItem).group_by(Order.id).having(
+        # 조리가 필요한 아이템(상차림비 제외)이 없거나, 있다면 모두 완료되어야 함
+        (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 0) |
+        (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 
+         func.sum(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table") & (OrderItem.cooking_status == "completed"), 1), else_=0)))
     ).order_by(Order.confirmed_at.desc()).limit(10).all()
     
     # 취소된 주문들 (최근 10개)
@@ -962,11 +1023,12 @@ async def kitchen_display(
     menu_item_details_for_js, menu_names_by_id, menu_items_grouped_by_category, category_display_names = get_menu_data(db)
     
     # 결제 확인된 주문의 조리 대기/진행 중인 아이템들 (취소되지 않은 것만)
-    cooking_items = db.query(OrderItem).join(Order).filter(
+    cooking_items = db.query(OrderItem).join(Order).join(MenuItem).filter(
         Order.payment_status == "confirmed",
         Order.is_cancelled == False,
         OrderItem.cooking_status.in_(["pending", "cooking"]),
-        OrderItem.menu_item_id.isnot(None)  # 뽑기권 등 특별 아이템 제외
+        OrderItem.menu_item_id.isnot(None),  # 뽑기권 등 특별 아이템 제외
+        MenuItem.category != "table"  # 상차림비 제외
     ).order_by(Order.confirmed_at.desc()).all()
     
     # 결제 대기 중인 주문들 (전체 주문 단위로, 취소되지 않은 것만)
@@ -975,18 +1037,20 @@ async def kitchen_display(
         Order.is_cancelled == False
     ).order_by(Order.created_at.desc()).all()
     
-    # 완료된 아이템들 (취소되지 않은 주문의 아이템만)
-    completed_items = db.query(OrderItem).join(Order).filter(
+    # 완료된 아이템들 (취소되지 않은 주문의 아이템만, 상차림비 제외)
+    completed_items = db.query(OrderItem).join(Order).join(MenuItem).filter(
         Order.payment_status == "confirmed",
         Order.is_cancelled == False,
         OrderItem.cooking_status == "completed",
-        OrderItem.menu_item_id.isnot(None)
+        OrderItem.menu_item_id.isnot(None),
+        MenuItem.category != "table"  # 상차림비 제외
     ).order_by(OrderItem.completed_at.desc()).limit(20).all()
     
-    # 취소된 아이템들 (최근 10개)
-    cancelled_items = db.query(OrderItem).join(Order).filter(
+    # 취소된 아이템들 (최근 10개, 상차림비 제외)
+    cancelled_items = db.query(OrderItem).join(Order).join(MenuItem).filter(
         OrderItem.cooking_status == "cancelled",
-        OrderItem.menu_item_id.isnot(None)
+        OrderItem.menu_item_id.isnot(None),
+        MenuItem.category != "table"  # 상차림비 제외
     ).order_by(OrderItem.cancelled_at.desc()).limit(10).all()
     
     return templates.TemplateResponse(
@@ -1071,22 +1135,23 @@ async def table_order_history(
     
     # 상태별 필터링
     if status == "cooking":
-        # 결제 확인된 주문 중 아이템이 하나라도 조리 중이거나 대기중인 주문
+        # 결제 확인된 주문 중 조리가 필요한 아이템이 하나라도 조리 중이거나 대기중인 주문
         query = query.filter(
             Order.payment_status == "confirmed",
             Order.is_cancelled == False
-        ).join(OrderItem).filter(
-            OrderItem.cooking_status.in_(["pending", "cooking"])
+        ).join(OrderItem).join(MenuItem).filter(
+            OrderItem.cooking_status.in_(["pending", "cooking"]),
+            MenuItem.category != "table"  # 상차림비 제외
         ).distinct()
     elif status == "completed":
-        # 모든 아이템이 완료된 주문
+        # 실제 조리가 필요한 아이템들이 모두 완료된 주문 (조리가 필요한 아이템이 없는 경우도 포함, 상차림비 제외)
         query = query.filter(
             Order.payment_status == "confirmed",
             Order.is_cancelled == False
-        ).outerjoin(OrderItem).group_by(Order.id).having(
-            func.count(OrderItem.id) == func.sum(
-                case((OrderItem.cooking_status == "completed", 1), else_=0)
-            )
+        ).outerjoin(OrderItem).outerjoin(MenuItem).group_by(Order.id).having(
+            (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 0) |
+            (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 
+             func.sum(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table") & (OrderItem.cooking_status == "completed"), 1), else_=0)))
         )
     elif status == "pending":
         query = query.filter(
