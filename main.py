@@ -20,6 +20,7 @@ from fastapi import WebSocketDisconnect
 from fastapi import BackgroundTasks
 import datetime as dt # Import datetime as dt to avoid conflict if datetime was used as variable name
 from pydantic import BaseModel
+from pytz import timezone
 
 # FastAPI 앱 생성
 app = FastAPI()
@@ -39,7 +40,15 @@ class GiftOrderRequest(BaseModel):
     message: Optional[str] = None
 
 # KST timezone object
-KST = dt.timezone(dt.timedelta(hours=9))
+KST = timezone('Asia/Seoul')
+
+def get_kst_now():
+    """현재 한국 시간을 반환"""
+    return datetime.now(KST)
+
+def get_kst_today_start():
+    """오늘 00:00:00 한국 시간을 반환"""
+    return get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
 # Custom Jinja2 filter to convert UTC to KST and format
 def to_kst_filter(utc_dt):
@@ -157,7 +166,7 @@ class Order(Base):
     is_cancelled = Column(Boolean, default=False)  # 주문 취소 여부
     cancelled_at = Column(DateTime, nullable=True)  # 취소 시간
     cancellation_reason = Column(String, nullable=True)  # 취소 사유
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_kst_now)
     confirmed_at = Column(DateTime, nullable=True)
     
     # 관계 설정
@@ -193,7 +202,7 @@ class ChatMessage(Base):
     nickname = Column(String, default="손님")  # 닉네임
     is_global = Column(Boolean, default=True)  # True: 전체 채팅, False: 개별 채팅
     target_table_id = Column(Integer, nullable=True)  # 개별 채팅 시 대상 테이블 (향후 확장용)
-    created_at = Column(DateTime, default=datetime.utcnow)
+    created_at = Column(DateTime, default=get_kst_now)
 
 class MenuItem(Base):
     __tablename__ = "menu_items"
@@ -206,8 +215,23 @@ class MenuItem(Base):
     description = Column(String, nullable=True)  # 메뉴 설명
     image_filename = Column(String, nullable=True)  # 이미지 파일명
     is_active = Column(Boolean, default=True)
-    created_at = Column(DateTime, default=datetime.utcnow)
-    updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
+    created_at = Column(DateTime, default=get_kst_now)
+    updated_at = Column(DateTime, default=get_kst_now, onupdate=get_kst_now)
+
+class Waiting(Base):
+    __tablename__ = "waiting"
+
+    id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, nullable=False)  # 고객 이름
+    phone = Column(String, nullable=False)  # 전화번호
+    party_size = Column(Integer, nullable=False)  # 인원수
+    status = Column(String, default="waiting")  # 'waiting', 'called', 'seated', 'cancelled'
+    notes = Column(Text, nullable=True)  # 특별 요청사항
+    created_at = Column(DateTime, default=get_kst_now)
+    called_at = Column(DateTime, nullable=True)  # 호출 시간
+    seated_at = Column(DateTime, nullable=True)  # 착석 시간
+    cancelled_at = Column(DateTime, nullable=True)  # 취소 시간
+    table_id = Column(Integer, nullable=True)  # 배정된 테이블 번호
 
 # 데이터베이스 테이블 생성
 Base.metadata.create_all(bind=engine)
@@ -791,7 +815,7 @@ async def submit_order(
                 # 특별 아이템 (menu_item_id가 None인 경우) 또는 상차림비는 자동으로 완료 처리
                 if item_data["menu_item_id"] is None:
                     cooking_status = "completed"
-                    completed_at = datetime.utcnow()
+                    completed_at = get_kst_now()
                 else:
                     # 상차림비인지 확인 (menu_item_id가 1)
                     menu_item = db.query(MenuItem).filter(MenuItem.id == item_data["menu_item_id"]).first()
@@ -908,6 +932,131 @@ async def admin_orders(
         }
     )
 
+@app.get("/admin/tables", response_class=HTMLResponse)
+async def admin_tables(
+    request: Request,
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """테이블별 주문 현황 및 시간 확인 페이지"""
+    # 각 테이블의 최신 주문 정보와 통계를 가져오기
+    
+    # 테이블별 최신 주문 시간 조회
+    latest_orders_subquery = (
+        db.query(
+            Order.table_id,
+            func.max(Order.created_at).label('latest_order_time'),
+            func.count(Order.id).label('total_orders')
+        )
+        .group_by(Order.table_id)
+        .subquery()
+    )
+    
+    # 테이블별 현재 상태 조회 (결제 대기, 조리 중, 완료 주문 수)
+    table_stats = []
+    
+    # 1번부터 50번까지 테이블 정보 조회
+    for table_id in range(1, 51):
+        # 최신 주문 정보
+        latest_order_info = db.query(latest_orders_subquery).filter(
+            latest_orders_subquery.c.table_id == table_id
+        ).first()
+        
+        # 현재 대기 중인 주문 수
+        pending_count = db.query(Order).filter(
+            Order.table_id == table_id,
+            Order.payment_status == "pending",
+            Order.is_cancelled == False
+        ).count()
+        
+        # 현재 조리 중인 주문 수
+        cooking_count = db.query(Order).filter(
+            Order.table_id == table_id,
+            Order.payment_status == "confirmed",
+            Order.is_cancelled == False
+        ).join(OrderItem).join(MenuItem).filter(
+            OrderItem.cooking_status.in_(["pending", "cooking"]),
+            MenuItem.category != "table"
+        ).distinct().count()
+        
+        # 전체 완료된 주문 수 (취소되지 않은 주문 중 조리가 필요한 아이템들이 모두 완료된 주문)
+        completed_total = db.query(Order).filter(
+            Order.table_id == table_id,
+            Order.payment_status == "confirmed",
+            Order.is_cancelled == False
+        ).outerjoin(OrderItem).outerjoin(MenuItem).group_by(Order.id).having(
+            (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 0) |
+            (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 
+             func.sum(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table") & (OrderItem.cooking_status == "completed"), 1), else_=0)))
+        ).count()
+        
+        # 오늘 완료된 주문 수
+        today_start = get_kst_today_start()
+        completed_today = db.query(Order).filter(
+            Order.table_id == table_id,
+            Order.payment_status == "confirmed",
+            Order.is_cancelled == False,
+            Order.confirmed_at >= today_start
+        ).outerjoin(OrderItem).outerjoin(MenuItem).group_by(Order.id).having(
+            (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 0) |
+            (func.count(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table"), 1), else_=None)) == 
+             func.sum(case(((OrderItem.menu_item_id.isnot(None)) & (MenuItem.category != "table") & (OrderItem.cooking_status == "completed"), 1), else_=0)))
+        ).count()
+        
+        # 취소된 주문 수
+        cancelled_count = db.query(Order).filter(
+            Order.table_id == table_id,
+            Order.is_cancelled == True
+        ).count()
+        
+        # 총 주문 금액 (완료된 주문만)
+        total_amount = db.query(func.sum(Order.amount)).filter(
+            Order.table_id == table_id,
+            Order.payment_status == "confirmed",
+            Order.is_cancelled == False
+        ).scalar() or 0
+        
+        # 온라인 상태 확인
+        is_online = table_id in manager.get_online_tables()
+        nickname = manager.get_nickname(table_id) if is_online else None
+        
+        table_stats.append({
+            'table_id': table_id,
+            'latest_order_time': latest_order_info.latest_order_time if latest_order_info else None,
+            'total_orders': latest_order_info.total_orders if latest_order_info else 0,
+            'pending_count': pending_count,
+            'cooking_count': cooking_count,
+            'completed_total': completed_total,
+            'completed_today': completed_today,
+            'cancelled_count': cancelled_count,
+            'total_amount': total_amount,
+            'is_online': is_online,
+            'nickname': nickname
+        })
+    
+    # 요약 통계 계산
+    summary_stats = {
+        'online_count': sum(1 for table in table_stats if table['is_online']),
+        'pending_total': sum(table['pending_count'] for table in table_stats),
+        'cooking_total': sum(table['cooking_count'] for table in table_stats),
+        'completed_total': sum(table['completed_total'] for table in table_stats),
+        'cancelled_total': sum(table['cancelled_count'] for table in table_stats),
+        'active_tables_count': sum(1 for table in table_stats if table['total_orders'] > 0),
+        'today_completed_total': sum(table['completed_today'] for table in table_stats),
+        'total_orders_sum': sum(table['total_orders'] for table in table_stats),
+        'total_revenue': sum(table['total_amount'] for table in table_stats)
+    }
+    
+    return templates.TemplateResponse(
+        "admin_tables.html",
+        {
+            "request": request,
+            "table_stats": table_stats,
+            "summary_stats": summary_stats,
+            "username": username
+        }
+    )
+
 @app.post("/admin/orders/confirm/{order_id}")
 async def confirm_order(
     order_id: int,
@@ -922,7 +1071,7 @@ async def confirm_order(
         raise HTTPException(status_code=400, detail="Cannot confirm a cancelled order")
     
     order.payment_status = "confirmed"
-    order.confirmed_at = datetime.utcnow()
+    order.confirmed_at = get_kst_now()
     db.commit()
     
     return RedirectResponse(url="/admin/orders", status_code=303)
@@ -948,14 +1097,14 @@ async def cancel_order(
     # 주문 취소 처리
     order.is_cancelled = True
     order.payment_status = "cancelled"
-    order.cancelled_at = datetime.utcnow()
+    order.cancelled_at = get_kst_now()
     order.cancellation_reason = reason or "관리자에 의한 취소"
     
     # 모든 주문 아이템 취소 처리
     for item in order.order_items:
         if item.cooking_status not in ["completed", "cancelled"]:
             item.cooking_status = "cancelled"
-            item.cancelled_at = datetime.utcnow()
+            item.cancelled_at = get_kst_now()
             item.cancellation_reason = reason or "주문 취소"
     
     db.commit()
@@ -993,7 +1142,7 @@ async def cancel_order_item(
     
     # 아이템 취소 처리
     order_item.cooking_status = "cancelled"
-    order_item.cancelled_at = datetime.utcnow()
+    order_item.cancelled_at = get_kst_now()
     order_item.cancellation_reason = reason or "개별 아이템 취소"
     
     db.commit()
@@ -1080,9 +1229,9 @@ async def update_item_cooking_status(
     
     order_item.cooking_status = status
     if status == "cooking" and not order_item.started_at:
-        order_item.started_at = datetime.utcnow()
+        order_item.started_at = get_kst_now()
     elif status == "completed":
-        order_item.completed_at = datetime.utcnow()
+        order_item.completed_at = get_kst_now()
     
     db.commit()
     return RedirectResponse(url="/kitchen", status_code=303)
@@ -1104,9 +1253,9 @@ async def update_cooking_status(
         if order_item.menu_item_id:  # 실제 메뉴 아이템만
             order_item.cooking_status = status
             if status == "cooking" and not order_item.started_at:
-                order_item.started_at = datetime.utcnow()
+                order_item.started_at = get_kst_now()
             elif status == "completed":
-                order_item.completed_at = datetime.utcnow()
+                order_item.completed_at = get_kst_now()
     
     db.commit()
     return RedirectResponse(url="/kitchen", status_code=303)
@@ -1684,6 +1833,172 @@ async def create_gift_order(
         print(f"Unexpected error in create_gift_order: {str(e)}")
         db.rollback()
         raise HTTPException(status_code=500, detail="Internal server error")
+
+# 웨이팅 관련 엔드포인트
+@app.post("/waiting/add")
+async def add_waiting(
+    name: str = Form(...),
+    phone: str = Form(...),
+    party_size: int = Form(...),
+    notes: str = Form(None),
+    db: Session = Depends(get_db)
+):
+    """웨이팅 등록"""
+    try:
+        # 전화번호 중복 확인 (대기 중인 웨이팅만)
+        existing_waiting = db.query(Waiting).filter(
+            Waiting.phone == phone,
+            Waiting.status == "waiting"
+        ).first()
+        
+        if existing_waiting:
+            raise HTTPException(status_code=400, detail="이미 대기 중인 전화번호입니다.")
+        
+        waiting = Waiting(
+            name=name,
+            phone=phone,
+            party_size=party_size,
+            notes=notes,
+            status="waiting"
+        )
+        
+        db.add(waiting)
+        db.commit()
+        db.refresh(waiting)
+        
+        # 관리자에게 알림
+        notification = {
+            "type": "new_waiting",
+            "waiting_id": waiting.id,
+            "name": name,
+            "phone": phone,
+            "party_size": party_size,
+            "notes": notes
+        }
+        await manager.broadcast_to_table(0, json.dumps(notification))
+        
+        return {"success": True, "waiting_id": waiting.id, "message": "웨이팅이 등록되었습니다."}
+        
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"Error adding waiting: {str(e)}")
+        raise HTTPException(status_code=500, detail="웨이팅 등록 중 오류가 발생했습니다.")
+
+@app.get("/admin/waiting", response_class=HTMLResponse)
+async def admin_waiting(
+    request: Request,
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """웨이팅 관리 페이지"""
+    # 현재 대기 중인 웨이팅 목록
+    waiting_list = db.query(Waiting).filter(
+        Waiting.status == "waiting"
+    ).order_by(Waiting.created_at.asc()).all()
+    
+    # 오늘의 웨이팅 통계
+    today_start = get_kst_today_start()
+    
+    today_stats = {
+        "total": db.query(Waiting).filter(Waiting.created_at >= today_start).count(),
+        "waiting": db.query(Waiting).filter(
+            Waiting.created_at >= today_start,
+            Waiting.status == "waiting"
+        ).count(),
+        "called": db.query(Waiting).filter(
+            Waiting.created_at >= today_start,
+            Waiting.status == "called"
+        ).count(),
+        "seated": db.query(Waiting).filter(
+            Waiting.created_at >= today_start,
+            Waiting.status == "seated"
+        ).count(),
+        "cancelled": db.query(Waiting).filter(
+            Waiting.created_at >= today_start,
+            Waiting.status == "cancelled"
+        ).count()
+    }
+    
+    # 최근 완료된 웨이팅 (오늘)
+    recent_completed = db.query(Waiting).filter(
+        Waiting.created_at >= today_start,
+        Waiting.status.in_(["seated", "cancelled"])
+    ).order_by(Waiting.seated_at.desc(), Waiting.cancelled_at.desc()).limit(10).all()
+    
+    return templates.TemplateResponse(
+        "admin_waiting.html",
+        {
+            "request": request,
+            "waiting_list": waiting_list,
+            "today_stats": today_stats,
+            "recent_completed": recent_completed,
+            "username": username
+        }
+    )
+
+@app.post("/admin/waiting/call/{waiting_id}")
+async def call_waiting(
+    waiting_id: int,
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """웨이팅 호출"""
+    waiting = db.query(Waiting).filter(Waiting.id == waiting_id).first()
+    if not waiting:
+        raise HTTPException(status_code=404, detail="웨이팅을 찾을 수 없습니다.")
+    
+    if waiting.status != "waiting":
+        raise HTTPException(status_code=400, detail="대기 중인 웨이팅만 호출할 수 있습니다.")
+    
+    waiting.status = "called"
+    waiting.called_at = get_kst_now()
+    db.commit()
+    
+    return {"success": True, "message": f"{waiting.name}님을 호출했습니다."}
+
+@app.post("/admin/waiting/seat/{waiting_id}")
+async def seat_waiting(
+    waiting_id: int,
+    table_id: int = Form(...),
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """웨이팅 착석 처리"""
+    waiting = db.query(Waiting).filter(Waiting.id == waiting_id).first()
+    if not waiting:
+        raise HTTPException(status_code=404, detail="웨이팅을 찾을 수 없습니다.")
+    
+    if waiting.status not in ["waiting", "called"]:
+        raise HTTPException(status_code=400, detail="대기 중이거나 호출된 웨이팅만 착석 처리할 수 있습니다.")
+    
+    waiting.status = "seated"
+    waiting.seated_at = get_kst_now()
+    waiting.table_id = table_id
+    db.commit()
+    
+    return {"success": True, "message": f"{waiting.name}님이 {table_id}번 테이블에 착석했습니다."}
+
+@app.post("/admin/waiting/cancel/{waiting_id}")
+async def cancel_waiting(
+    waiting_id: int,
+    db: Session = Depends(get_db),
+    username: str = Depends(verify_admin)
+):
+    """웨이팅 취소"""
+    waiting = db.query(Waiting).filter(Waiting.id == waiting_id).first()
+    if not waiting:
+        raise HTTPException(status_code=404, detail="웨이팅을 찾을 수 없습니다.")
+    
+    if waiting.status not in ["waiting", "called"]:
+        raise HTTPException(status_code=400, detail="대기 중이거나 호출된 웨이팅만 취소할 수 있습니다.")
+    
+    waiting.status = "cancelled"
+    waiting.cancelled_at = get_kst_now()
+    db.commit()
+    
+    return {"success": True, "message": f"{waiting.name}님의 웨이팅이 취소되었습니다."}
 
 if __name__ == "__main__":
     import uvicorn
