@@ -337,7 +337,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="🌟 두근두근 2인 세트",
                 name_en="🌟 2-person set",
-                price=32000,
+                price=34000,
                 category="set_menu",
                 description="둘이 앉아 조용히 속닥속닥 🌿\n(숲속 삼겹살 2인분 + 두부김치 + 음료 2잔 + 랜덤 뽑기권 1개)",
                 image_filename="2-person-set.png"
@@ -345,7 +345,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="🌟 단짝 4인 세트",
                 name_en="🌟 4-person set",
-                price=51900,
+                price=55900,
                 category="set_menu",
                 description="친구들, 이웃들 다 모여~ 파티 파티 🎇\n(숲속 삼겹살 3인분 + 두부김치 + 김치볶음밥 + 음료 4잔 + 랜덤 뽑기권 2개)",
                 image_filename="4-person-set.png"
@@ -353,7 +353,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="🌟 모여봐요 6인 세트",
                 name_en="🌟 6-person set",
-                price=77900,
+                price=82900,
                 category="set_menu",
                 description="마을 축제처럼 신나게!\n(숲속 삼겹살 5인분 + 두부김치 + 김치볶음밥 + 콘치즈 + 마을 장터 나초 + 음료 6잔 + 랜덤 뽑기권 4개)",
                 image_filename="6-person-set.png"
@@ -369,7 +369,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="너굴의 비밀 레시비 김볶밥",
                 name_en="kimchi_fried_rice",
-                price=7900,
+                price=9900,
                 category="main_dishes",
                 description="너굴 마트표 김치로 만든 마법의 볶음밥!\n밤하늘 아래서 먹으면 꿀맛 🍚🌟",
                 image_filename="kimchi_fried_rice.png"
@@ -385,7 +385,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="둘기가 숨어먹는 콘치즈",
                 name_en="corn_cheese",
-                price=6900,
+                price=7900,
                 category="main_dishes",
                 description="비둘기 마스터의 최애 간식!\n달콤하고 고소해서 숟가락이 멈추지 않아요 🌽🧀✨",
                 image_filename="corn_cheese.png"
@@ -421,6 +421,14 @@ def init_menu_data(db: Session):
                 category="drinks",
                 description="밤새 파티? 문제없어! 🦉🌙\n부엉이처럼 깨어있게 도와주는 마법의 한 캔 🪄🥤",
                 image_filename="owl_energy_drink.png"
+            ),
+            MenuItem(
+                name_kr="물",
+                name_en="water",
+                price=1500,
+                category="drinks",
+                description="마을 주민들이 손수 만든 바삭바삭 나초 🌿\n모닥불 옆에서 친구들과 나눠 먹는 소중한 맛 🎇",
+                image_filename="water.png"
             ),
         ]
         db.add_all(initial_menu)
