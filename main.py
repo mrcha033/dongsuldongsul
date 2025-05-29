@@ -377,7 +377,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="셰프 프랭클린의 두부김치",
                 name_en="tofu_kimchi",
-                price=12900,
+                price=11900,
                 category="main_dishes",
                 description="마을 최고 셰프의 두부 + 정성으로 구운 김치\n포근하고 든든한 마을 스타일 안주 💬🍽️",
                 image_filename="tofu_kimchi.png"
@@ -421,14 +421,6 @@ def init_menu_data(db: Session):
                 category="drinks",
                 description="밤새 파티? 문제없어! 🦉🌙\n부엉이처럼 깨어있게 도와주는 마법의 한 캔 🪄🥤",
                 image_filename="owl_energy_drink.png"
-            ),
-            MenuItem(
-                name_kr="물",
-                name_en="water",
-                price=1500,
-                category="drinks",
-                description="물임.",
-                image_filename="water.png"
             ),
         ]
         db.add_all(initial_menu)
