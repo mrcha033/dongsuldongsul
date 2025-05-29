@@ -427,7 +427,7 @@ def init_menu_data(db: Session):
                 name_en="water",
                 price=1500,
                 category="drinks",
-                description="마을 주민들이 손수 만든 바삭바삭 나초 🌿\n모닥불 옆에서 친구들과 나눠 먹는 소중한 맛 🎇",
+                description="물임.",
                 image_filename="water.png"
             ),
         ]
