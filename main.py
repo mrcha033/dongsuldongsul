@@ -21,6 +21,7 @@ from fastapi import BackgroundTasks
 import datetime as dt # Import datetime as dt to avoid conflict if datetime was used as variable name
 from pydantic import BaseModel
 from pytz import timezone
+import time
 
 # FastAPI 앱 생성
 app = FastAPI()
@@ -50,23 +51,26 @@ def get_kst_today_start():
     """오늘 00:00:00 한국 시간을 반환"""
     return get_kst_now().replace(hour=0, minute=0, second=0, microsecond=0)
 
-# Custom Jinja2 filter to convert UTC to KST and format
-def to_kst_filter(utc_dt):
-    if not utc_dt: # Handle None or empty values
+# Custom Jinja2 filter to convert to KST and format
+def to_kst_filter(dt):
+    if not dt: # Handle None or empty values
         return ""
-    if isinstance(utc_dt, str): # If it's already a string, try to parse, or return as is
+    if isinstance(dt, str): # If it's already a string, try to parse, or return as is
         try:
             # Attempt to parse if it's a common ISO format string
-            # This might need adjustment based on how strings are stored/passed
-            utc_dt = dt.datetime.fromisoformat(utc_dt.replace('Z', '+00:00'))
+            dt = datetime.fromisoformat(dt.replace('Z', '+00:00'))
         except ValueError:
-            return utc_dt # Return original string if parsing fails
+            return dt # Return original string if parsing fails
     
-    if utc_dt.tzinfo is None:
-        utc_dt = utc_dt.replace(tzinfo=dt.timezone.utc) # Assume naive datetime is UTC
+    # If datetime is naive (no timezone info), assume it's already in KST
+    if dt.tzinfo is None:
+        # Assume naive datetime is already in KST
+        dt = KST.localize(dt)
+    else:
+        # Convert to KST if it has timezone info
+        dt = dt.astimezone(KST)
     
-    kst_dt = utc_dt.astimezone(KST)
-    return kst_dt.strftime("%Y-%m-%d %H:%M") # Desired KST format
+    return dt.strftime("%Y-%m-%d %H:%M") # KST format
 
 # 정적 파일과 템플릿 설정
 app.mount("/static", StaticFiles(directory="static"), name="static")
