@@ -341,7 +341,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="🌟 두근두근 2인 세트",
                 name_en="🌟 2-person set",
-                price=34000,
+                price=35000,
                 category="set_menu",
                 description="둘이 앉아 조용히 속닥속닥 🌿\n(숲속 삼겹살 2인분 + 두부김치 + 음료 2잔 + 랜덤 뽑기권 1개)",
                 image_filename="2-person-set.png"
@@ -349,7 +349,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="🌟 단짝 4인 세트",
                 name_en="🌟 4-person set",
-                price=55900,
+                price=59900,
                 category="set_menu",
                 description="친구들, 이웃들 다 모여~ 파티 파티 🎇\n(숲속 삼겹살 3인분 + 두부김치 + 김치볶음밥 + 음료 4잔 + 랜덤 뽑기권 2개)",
                 image_filename="4-person-set.png"
@@ -357,7 +357,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="🌟 모여봐요 6인 세트",
                 name_en="🌟 6-person set",
-                price=82900,
+                price=85900,
                 category="set_menu",
                 description="마을 축제처럼 신나게!\n(숲속 삼겹살 5인분 + 두부김치 + 김치볶음밥 + 콘치즈 + 마을 장터 나초 + 음료 6잔 + 랜덤 뽑기권 4개)",
                 image_filename="6-person-set.png"
@@ -373,7 +373,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="너굴의 비밀 레시비 김볶밥",
                 name_en="kimchi_fried_rice",
-                price=9900,
+                price=11900,
                 category="main_dishes",
                 description="너굴 마트표 김치로 만든 마법의 볶음밥!\n밤하늘 아래서 먹으면 꿀맛 🍚🌟",
                 image_filename="kimchi_fried_rice.png"
@@ -381,7 +381,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="셰프 프랭클린의 두부김치",
                 name_en="tofu_kimchi",
-                price=11900,
+                price=13900,
                 category="main_dishes",
                 description="마을 최고 셰프의 두부 + 정성으로 구운 김치\n포근하고 든든한 마을 스타일 안주 💬🍽️",
                 image_filename="tofu_kimchi.png"
@@ -389,7 +389,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="둘기가 숨어먹는 콘치즈",
                 name_en="corn_cheese",
-                price=7900,
+                price=8900,
                 category="main_dishes",
                 description="비둘기 마스터의 최애 간식!\n달콤하고 고소해서 숟가락이 멈추지 않아요 🌽🧀✨",
                 image_filename="corn_cheese.png"
@@ -397,7 +397,7 @@ def init_menu_data(db: Session):
             MenuItem(
                 name_kr="마을 장터 나초",
                 name_en="nachos",
-                price=6900,
+                price=7900,
                 category="main_dishes",
                 description="마을 주민들이 손수 만든 바삭바삭 나초 🌿\n모닥불 옆에서 친구들과 나눠 먹는 소중한 맛 🎇",
                 image_filename="nachos.png"
